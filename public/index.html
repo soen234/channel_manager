@@ -26,12 +26,22 @@
       background-color: rgba(59, 130, 246, 0.1);
       border-left: 4px solid #3b82f6;
     }
+    #sidebar {
+      transition: width 0.3s, margin-left 0.3s;
+    }
+    #sidebar.collapsed {
+      width: 0;
+      margin-left: -256px;
+    }
+    #mainContent {
+      transition: margin-left 0.3s;
+    }
   </style>
 </head>
 <body class="bg-gray-100">
   <div class="flex h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-lg">
+    <aside id="sidebar" class="w-64 bg-white shadow-lg overflow-hidden">
       <div class="p-6 bg-gradient-to-r from-blue-600 to-blue-700">
         <h1 class="text-xl font-bold text-white">채널매니저</h1>
         <p class="text-xs text-blue-100">통합 관리 시스템</p>
@@ -105,9 +115,16 @@
       <!-- Header -->
       <header class="bg-white shadow-sm">
         <div class="px-8 py-4 flex justify-between items-center">
-          <div>
-            <h2 class="text-2xl font-bold text-gray-800" id="pageTitle">대시보드</h2>
-            <p class="text-sm text-gray-600" id="pageSubtitle"></p>
+          <div class="flex items-center">
+            <button onclick="toggleSidebar()" class="mr-4 p-2 rounded-lg hover:bg-gray-100">
+              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+            <div>
+              <h2 class="text-2xl font-bold text-gray-800" id="pageTitle">대시보드</h2>
+              <p class="text-sm text-gray-600" id="pageSubtitle"></p>
+            </div>
           </div>
           <div class="flex items-center space-x-4">
             <button class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
@@ -171,6 +188,12 @@
 
     updateTime();
     setInterval(updateTime, 60000); // 1분마다 업데이트
+
+    // 사이드바 토글
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('collapsed');
+    }
   </script>
 </body>
 </html>

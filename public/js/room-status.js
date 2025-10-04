@@ -66,11 +66,14 @@ async function loadRoomStatus() {
     </div>
   `;
 
-  // Wait for DOM to be ready
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  await loadPropertyListForStatus();
-  await loadRoomStatusData();
+  // Wait for DOM elements to be ready
+  try {
+    await waitForElement('statusPropertyId');
+    await loadPropertyListForStatus();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Failed to initialize room status:', error);
+  }
 }
 
 function getToday() {

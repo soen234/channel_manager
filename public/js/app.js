@@ -1,5 +1,18 @@
 const API_BASE = '/api';
 
+// Wait for DOM element to be available
+async function waitForElement(id, timeout = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const element = document.getElementById(id);
+    if (element) {
+      return element;
+    }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  throw new Error(`Element ${id} not found after ${timeout}ms`);
+}
+
 // 인증 체크
 function checkAuth() {
   const token = localStorage.getItem('auth_token');

@@ -115,10 +115,13 @@ async function loadChannels() {
     </div>
   `;
 
-  // Wait for DOM to be ready
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  await loadChannelMappings();
+  // Wait for DOM elements to be ready
+  try {
+    await waitForElement('channelMappingsList');
+    await loadChannelMappings();
+  } catch (error) {
+    console.error('Failed to initialize channels:', error);
+  }
 }
 
 let currentChannel = null;

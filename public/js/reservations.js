@@ -61,10 +61,13 @@ async function loadReservations() {
     </div>
   `;
 
-  // Wait for DOM to be ready
-  await new Promise(resolve => setTimeout(resolve, 0));
-
-  await loadReservationsList();
+  // Wait for DOM elements to be ready
+  try {
+    await waitForElement('reservationsList');
+    await loadReservationsList();
+  } catch (error) {
+    console.error('Failed to initialize reservations:', error);
+  }
 }
 
 async function loadReservationsList() {

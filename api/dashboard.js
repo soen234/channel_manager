@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const { authMiddleware } = require('./_middleware');
-
-const prisma = new PrismaClient();
+const { authMiddleware, supabase } = require('./_middleware');
 
 module.exports = async (req, res) => {
   const auth = await authMiddleware(req, res);
@@ -14,65 +11,78 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
     const [
-      todayCheckIns,
-      todayCheckOuts,
-      nextMonthReservations,
-      totalProperties,
-      recentReservations,
-      channelStats
+      { count: todayCheckIns },
+      { count: todayCheckOuts },
+      { count: nextMonthReservations },
+      { count: totalProperties },
+      { data: recentReservations },
+      { data: channelStats }
     ] = await Promise.all([
-      prisma.reservation.count({
-        where: {
-          checkIn: { gte: today, lt: tomorrow }
-        }
-      }),
-      prisma.reservation.count({
-        where: {
-          checkOut: { gte: today, lt: tomorrow }
-        }
-      }),
-      prisma.reservation.count({
-        where: {
-          checkIn: { gte: today, lt: nextMonth }
-        }
-      }),
-      prisma.property.count(),
-      prisma.reservation.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          room: {
-            include: {
-              property: true
-            }
-          }
-        }
-      }),
-      prisma.reservation.groupBy({
-        by: ['channel'],
-        _count: true
-      })
+      supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .gte('check_in', today)
+        .lt('check_in', tomorrow),
+
+      supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .gte('check_out', today)
+        .lt('check_out', tomorrow),
+
+      supabase
+        .from('reservations')
+        .select('*', { count: 'exact', head: true })
+        .gte('check_in', today)
+        .lt('check_in', nextMonth),
+
+      supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true }),
+
+      supabase
+        .from('reservations')
+        .select(`
+          *,
+          rooms (
+            *,
+            properties (*)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5),
+
+      supabase
+        .from('reservations')
+        .select('channel')
     ]);
 
+    // Group by channel
+    const channelGroups = {};
+    if (channelStats) {
+      channelStats.forEach(r => {
+        channelGroups[r.channel] = (channelGroups[r.channel] || 0) + 1;
+      });
+    }
+
     res.json({
-      todayCheckIns,
-      todayCheckOuts,
-      nextMonthReservations,
-      totalProperties,
-      recentReservations,
-      channelStats
+      todayCheckIns: todayCheckIns || 0,
+      todayCheckOuts: todayCheckOuts || 0,
+      nextMonthReservations: nextMonthReservations || 0,
+      totalProperties: totalProperties || 0,
+      recentReservations: recentReservations || [],
+      channelStats: Object.entries(channelGroups).map(([channel, count]) => ({
+        channel,
+        _count: count
+      }))
     });
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };

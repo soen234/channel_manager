@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const { authMiddleware } = require('../../_middleware');
-
-const prisma = new PrismaClient();
+const { authMiddleware, supabase } = require('../../_middleware');
 
 module.exports = async (req, res) => {
   const auth = await authMiddleware(req, res);
@@ -9,29 +6,28 @@ module.exports = async (req, res) => {
     return res.status(auth.status).json({ error: auth.error });
   }
 
-  const { roomId } = req.query;
-  const { startDate, endDate } = req.query;
+  const { roomId, startDate, endDate } = req.query;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const where = { roomId };
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
-    }
+    let query = supabase
+      .from('inventory')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('date', { ascending: true });
 
-    const inventory = await prisma.inventory.findMany({
-      where,
-      orderBy: { date: 'asc' }
-    });
+    if (startDate) query = query.gte('date', startDate);
+    if (endDate) query = query.lte('date', endDate);
 
-    res.json(inventory);
+    const { data: inventory, error } = await query;
+
+    if (error) throw error;
+    res.json(inventory || []);
   } catch (error) {
     console.error('Inventory error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };

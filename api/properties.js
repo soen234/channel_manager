@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const { authMiddleware } = require('./_middleware');
-
-const prisma = new PrismaClient();
+const { authMiddleware, supabase } = require('./_middleware');
 
 module.exports = async (req, res) => {
   const auth = await authMiddleware(req, res);
@@ -10,36 +7,42 @@ module.exports = async (req, res) => {
   }
 
   const { id, propertyId, roomId } = req.query;
-  const urlPath = req.url.split('?')[0];
 
   try {
     // GET /api/properties - List all properties
     if (req.method === 'GET' && !id && !propertyId) {
-      const properties = await prisma.property.findMany({
-        include: {
-          rooms: true,
-          channelMappings: true
-        }
-      });
-      return res.json(properties);
+      const { data: properties, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          rooms (*),
+          channel_mappings (*)
+        `);
+
+      if (error) throw error;
+      return res.json(properties || []);
     }
 
     // GET /api/properties?id=xxx - Get single property
     if (req.method === 'GET' && id) {
-      const property = await prisma.property.findUnique({
-        where: { id },
-        include: {
-          rooms: {
-            include: {
-              channelRoomMappings: true
-            }
-          },
-          channelMappings: true
-        }
-      });
+      const { data: property, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          rooms (
+            *,
+            channel_room_mappings (*)
+          ),
+          channel_mappings (*)
+        `)
+        .eq('id', id)
+        .single();
 
-      if (!property) {
-        return res.status(404).json({ error: 'Property not found' });
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return res.status(404).json({ error: 'Property not found' });
+        }
+        throw error;
       }
 
       return res.json(property);
@@ -48,80 +51,118 @@ module.exports = async (req, res) => {
     // POST /api/properties - Create property
     if (req.method === 'POST' && !propertyId) {
       const { name, address, description } = req.body;
-      const property = await prisma.property.create({
-        data: { name, address, description }
-      });
+
+      const { data: property, error } = await supabase
+        .from('properties')
+        .insert([{ name, address, description }])
+        .select()
+        .single();
+
+      if (error) throw error;
       return res.status(201).json(property);
     }
 
     // PUT /api/properties?id=xxx - Update property
     if (req.method === 'PUT' && id) {
       const { name, address, description } = req.body;
-      const property = await prisma.property.update({
-        where: { id },
-        data: { name, address, description }
-      });
+
+      const { data: property, error } = await supabase
+        .from('properties')
+        .update({ name, address, description })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       return res.json(property);
     }
 
     // DELETE /api/properties?id=xxx - Delete property
     if (req.method === 'DELETE' && id) {
-      await prisma.property.delete({ where: { id } });
+      const { error } = await supabase
+        .from('properties')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       return res.status(204).send();
     }
 
     // GET /api/properties?propertyId=xxx (rooms list)
     if (req.method === 'GET' && propertyId && !roomId) {
-      const rooms = await prisma.room.findMany({
-        where: { propertyId },
-        include: {
-          channelRoomMappings: true
-        }
-      });
-      return res.json(rooms);
+      const { data: rooms, error } = await supabase
+        .from('rooms')
+        .select(`
+          *,
+          channel_room_mappings (*)
+        `)
+        .eq('property_id', propertyId);
+
+      if (error) throw error;
+      return res.json(rooms || []);
     }
 
     // POST /api/properties?propertyId=xxx (create room)
     if (req.method === 'POST' && propertyId) {
       const { name, type, totalRooms, capacity, basePrice } = req.body;
-      const room = await prisma.room.create({
-        data: {
-          propertyId,
+
+      const { data: room, error } = await supabase
+        .from('rooms')
+        .insert([{
+          property_id: propertyId,
           name,
           type,
-          totalRooms: totalRooms || 1,
+          total_rooms: totalRooms || 1,
           capacity,
-          basePrice
-        }
-      });
+          base_price: basePrice
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
       return res.status(201).json(room);
     }
 
     // PUT /api/properties?propertyId=xxx&roomId=xxx (update room)
     if (req.method === 'PUT' && propertyId && roomId) {
       const { name, type, totalRooms, capacity, basePrice } = req.body;
-      const room = await prisma.room.update({
-        where: { id: roomId },
-        data: {
-          name,
-          type,
-          ...(totalRooms !== undefined && { totalRooms }),
-          capacity,
-          basePrice
-        }
-      });
+
+      const updateData = {
+        name,
+        type,
+        capacity,
+        base_price: basePrice
+      };
+
+      if (totalRooms !== undefined) {
+        updateData.total_rooms = totalRooms;
+      }
+
+      const { data: room, error } = await supabase
+        .from('rooms')
+        .update(updateData)
+        .eq('id', roomId)
+        .select()
+        .single();
+
+      if (error) throw error;
       return res.json(room);
     }
 
     // DELETE /api/properties?propertyId=xxx&roomId=xxx (delete room)
     if (req.method === 'DELETE' && propertyId && roomId) {
-      await prisma.room.delete({ where: { id: roomId } });
+      const { error } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', roomId);
+
+      if (error) throw error;
       return res.status(204).send();
     }
 
     res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('Properties API error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };

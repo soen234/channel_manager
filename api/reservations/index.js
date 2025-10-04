@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const { authMiddleware } = require('../_middleware');
-
-const prisma = new PrismaClient();
+const { authMiddleware, supabase } = require('../_middleware');
 
 module.exports = async (req, res) => {
   const auth = await authMiddleware(req, res);
@@ -16,31 +13,29 @@ module.exports = async (req, res) => {
   try {
     const { channel, status, startDate, endDate, limit } = req.query;
 
-    const where = {};
-    if (channel) where.channel = channel;
-    if (status) where.status = status;
-    if (startDate || endDate) {
-      where.checkIn = {};
-      if (startDate) where.checkIn.gte = new Date(startDate);
-      if (endDate) where.checkIn.lte = new Date(endDate);
-    }
+    let query = supabase
+      .from('reservations')
+      .select(`
+        *,
+        rooms (
+          *,
+          properties (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-    const reservations = await prisma.reservation.findMany({
-      where,
-      ...(limit && { take: parseInt(limit) }),
-      orderBy: { createdAt: 'desc' },
-      include: {
-        room: {
-          include: {
-            property: true
-          }
-        }
-      }
-    });
+    if (channel) query = query.eq('channel', channel);
+    if (status) query = query.eq('status', status);
+    if (startDate) query = query.gte('check_in', startDate);
+    if (endDate) query = query.lte('check_in', endDate);
+    if (limit) query = query.limit(parseInt(limit));
 
-    res.json(reservations);
+    const { data: reservations, error } = await query;
+
+    if (error) throw error;
+    res.json(reservations || []);
   } catch (error) {
     console.error('Reservations error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };

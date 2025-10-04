@@ -117,8 +117,8 @@ function renderReservationsList(reservations) {
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
         ${reservations.map(res => {
-          const checkIn = new Date(res.checkIn);
-          const checkOut = new Date(res.checkOut);
+          const checkIn = new Date(res.check_in);
+          const checkOut = new Date(res.check_out);
           const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
 
           return `
@@ -129,13 +129,13 @@ function renderReservationsList(reservations) {
                 </span>
               </td>
               <td class="px-4 py-3">
-                <div class="text-sm font-medium text-gray-900">${res.room?.property?.name || '-'}</div>
-                <div class="text-xs text-gray-500">${res.room?.name || '-'}</div>
+                <div class="text-sm font-medium text-gray-900">${res.rooms?.properties?.name || '-'}</div>
+                <div class="text-xs text-gray-500">${res.rooms?.name || '-'}</div>
               </td>
               <td class="px-4 py-3">
-                <div class="text-sm font-medium text-gray-900">${res.guestName}</div>
-                ${res.guestEmail ? `<div class="text-xs text-gray-500">${res.guestEmail}</div>` : ''}
-                ${res.guestPhone ? `<div class="text-xs text-gray-500">${res.guestPhone}</div>` : ''}
+                <div class="text-sm font-medium text-gray-900">${res.guest_name}</div>
+                ${res.guest_email ? `<div class="text-xs text-gray-500">${res.guest_email}</div>` : ''}
+                ${res.guest_phone ? `<div class="text-xs text-gray-500">${res.guest_phone}</div>` : ''}
               </td>
               <td class="px-4 py-3 text-sm text-gray-700">
                 ${checkIn.toLocaleDateString('ko-KR')}
@@ -145,11 +145,11 @@ function renderReservationsList(reservations) {
                 <span class="text-xs text-gray-500">(${nights}박)</span>
               </td>
               <td class="px-4 py-3 text-center text-sm text-gray-700">
-                ${res.numberOfGuests}명
+                ${res.number_of_guests}명
               </td>
               <td class="px-4 py-3 text-right">
                 <div class="text-sm font-semibold text-gray-900">
-                  ${res.totalPrice.toLocaleString()}원
+                  ${parseFloat(res.total_price).toLocaleString()}원
                 </div>
               </td>
               <td class="px-4 py-3 text-center">
@@ -192,111 +192,18 @@ async function filterReservations() {
 }
 
 async function syncReservations() {
-  if (!confirm('모든 채널의 예약을 동기화하시겠습니까?')) return;
-
-  try {
-    await apiCall('/reservations/sync', {
-      method: 'POST',
-      body: JSON.stringify({})
-    });
-    showToast('예약 동기화가 완료되었습니다.');
-    await loadReservationsList();
-  } catch (error) {
-    showToast('동기화 실패', 'error');
-  }
-}
-
-async function updateReservationStatus(id, status) {
-  try {
-    await apiCall(`/reservations/${id}/status`, {
-      method: 'PUT',
-      body: JSON.stringify({ status })
-    });
-    showToast('예약 상태가 업데이트되었습니다.');
-  } catch (error) {
-    showToast('상태 업데이트 실패', 'error');
-    await loadReservationsList();
-  }
+  showToast('예약 동기화 기능은 준비 중입니다.', 'error');
+  return;
 }
 
 async function viewReservationDetail(id) {
-  try {
-    const reservation = await apiCall(`/reservations/${id}`);
+  showToast('예약 상세 조회 기능은 준비 중입니다.', 'error');
+  return;
+}
 
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    modal.innerHTML = `
-      <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
-        <h2 class="text-2xl font-bold mb-6">예약 상세</h2>
-
-        <div class="grid grid-cols-2 gap-6">
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">채널 정보</h3>
-            <div class="space-y-1">
-              <p class="text-sm"><span class="font-medium">채널:</span> ${getChannelName(reservation.channel)}</p>
-              <p class="text-sm"><span class="font-medium">예약번호:</span> ${reservation.channelReservationId}</p>
-            </div>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">숙소 정보</h3>
-            <div class="space-y-1">
-              <p class="text-sm"><span class="font-medium">숙소:</span> ${reservation.room?.property?.name || '-'}</p>
-              <p class="text-sm"><span class="font-medium">객실:</span> ${reservation.room?.name || '-'}</p>
-            </div>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">고객 정보</h3>
-            <div class="space-y-1">
-              <p class="text-sm"><span class="font-medium">이름:</span> ${reservation.guestName}</p>
-              ${reservation.guestEmail ? `<p class="text-sm"><span class="font-medium">이메일:</span> ${reservation.guestEmail}</p>` : ''}
-              ${reservation.guestPhone ? `<p class="text-sm"><span class="font-medium">전화:</span> ${reservation.guestPhone}</p>` : ''}
-            </div>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">숙박 정보</h3>
-            <div class="space-y-1">
-              <p class="text-sm"><span class="font-medium">체크인:</span> ${new Date(reservation.checkIn).toLocaleDateString('ko-KR')}</p>
-              <p class="text-sm"><span class="font-medium">체크아웃:</span> ${new Date(reservation.checkOut).toLocaleDateString('ko-KR')}</p>
-              <p class="text-sm"><span class="font-medium">인원:</span> ${reservation.numberOfGuests}명</p>
-            </div>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">금액 정보</h3>
-            <div class="space-y-1">
-              <p class="text-sm"><span class="font-medium">총 금액:</span> ${reservation.totalPrice.toLocaleString()}원</p>
-              <p class="text-sm"><span class="font-medium">통화:</span> ${reservation.currency}</p>
-            </div>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-gray-700 mb-2">상태</h3>
-            <div class="space-y-1">
-              <p class="text-sm">
-                <span class="inline-block px-3 py-1 rounded ${getStatusColor(reservation.status)}">
-                  ${getStatusText(reservation.status)}
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 flex justify-end">
-          <button onclick="this.closest('.fixed').remove()"
-            class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-            닫기
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-  } catch (error) {
-    showToast('예약 정보를 불러오는데 실패했습니다.', 'error');
-  }
+async function updateReservationStatus(id, status) {
+  showToast('예약 상태 업데이트 기능은 준비 중입니다.', 'error');
+  return;
 }
 
 router.register('reservations', loadReservations);

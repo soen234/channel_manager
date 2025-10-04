@@ -177,12 +177,12 @@ async function refreshProperties() {
                       <div class="flex items-center gap-2 mb-1">
                         <p class="font-medium text-gray-900">${room.name}</p>
                         <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
-                          ${room.totalRooms || 1}개
+                          ${room.total_rooms || 1}개
                         </span>
                       </div>
                       <p class="text-sm text-gray-600">타입: ${room.type}</p>
                       <p class="text-sm text-gray-500">수용인원: 최대 ${room.capacity}명/객실</p>
-                      <p class="text-sm font-semibold text-blue-600 mt-1">${room.basePrice.toLocaleString()}원/박</p>
+                      <p class="text-sm font-semibold text-blue-600 mt-1">${parseFloat(room.base_price).toLocaleString()}원/박</p>
                     </div>
                     <button onclick="deleteRoom('${property.id}', '${room.id}')"
                       class="text-red-500 hover:text-red-700 text-sm ml-2">

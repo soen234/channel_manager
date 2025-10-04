@@ -46,6 +46,9 @@ async function loadReservations() {
         <button onclick="filterReservations()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           검색
         </button>
+        <button onclick="showExcelUploadModal()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+          📊 엑셀 업로드
+        </button>
         <button onclick="syncReservations()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
           예약 동기화
         </button>
@@ -57,6 +60,55 @@ async function loadReservations() {
       <h2 class="text-xl font-bold mb-4">예약 목록</h2>
       <div id="reservationsList" class="overflow-x-auto">
         <div class="text-center py-8 text-gray-500">로딩중...</div>
+      </div>
+    </div>
+
+    <!-- 엑셀 업로드 모달 -->
+    <div id="excelUploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4">예약 엑셀 파일 업로드</h2>
+
+        <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 class="font-semibold text-blue-900 mb-2">📋 엑셀 파일 형식</h3>
+          <p class="text-sm text-blue-800 mb-2">첫 번째 행에 다음 컬럼명을 포함해야 합니다:</p>
+          <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
+            <li><strong>객실명</strong> (필수): 시스템에 등록된 객실명과 일치해야 함</li>
+            <li><strong>게스트명</strong> (필수)</li>
+            <li><strong>체크인</strong> (필수): YYYY-MM-DD 형식</li>
+            <li><strong>체크아웃</strong> (필수): YYYY-MM-DD 형식</li>
+            <li><strong>총금액</strong> (필수): 숫자만 입력</li>
+            <li><strong>인원수</strong> (선택): 기본값 1</li>
+            <li><strong>이메일</strong> (선택)</li>
+            <li><strong>전화번호</strong> (선택)</li>
+            <li><strong>채널</strong> (선택): BOOKING_COM, YANOLJA, AIRBNB, DIRECT 중 하나</li>
+            <li><strong>메모</strong> (선택)</li>
+          </ul>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-gray-700 text-sm font-bold mb-2">엑셀 파일 선택</label>
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls"
+            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+          <p class="text-xs text-gray-500 mt-1">Excel 파일(.xlsx, .xls)만 업로드 가능</p>
+        </div>
+
+        <div id="uploadProgress" class="hidden mb-4">
+          <div class="bg-gray-200 rounded-full h-4 overflow-hidden">
+            <div id="uploadProgressBar" class="bg-purple-600 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <p id="uploadStatus" class="text-sm text-gray-600 mt-2 text-center"></p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="closeExcelUploadModal()"
+            class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+            취소
+          </button>
+          <button type="button" onclick="uploadExcelFile()"
+            class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            업로드
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -215,6 +267,216 @@ async function viewReservationDetail(id) {
 async function updateReservationStatus(id, status) {
   showToast('예약 상태 업데이트 기능은 준비 중입니다.', 'error');
   return;
+}
+
+function showExcelUploadModal() {
+  document.getElementById('excelUploadModal').classList.remove('hidden');
+  document.getElementById('excelFileInput').value = '';
+  document.getElementById('uploadProgress').classList.add('hidden');
+}
+
+function closeExcelUploadModal() {
+  document.getElementById('excelUploadModal').classList.add('hidden');
+}
+
+async function uploadExcelFile() {
+  const fileInput = document.getElementById('excelFileInput');
+  const file = fileInput.files[0];
+
+  if (!file) {
+    showToast('파일을 선택해주세요.', 'error');
+    return;
+  }
+
+  if (!file.name.match(/\.(xlsx|xls)$/)) {
+    showToast('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error');
+    return;
+  }
+
+  const progressDiv = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('uploadProgressBar');
+  const statusText = document.getElementById('uploadStatus');
+
+  progressDiv.classList.remove('hidden');
+  progressBar.style.width = '0%';
+  statusText.textContent = '파일 읽는 중...';
+
+  try {
+    // Load SheetJS library if not already loaded
+    if (typeof XLSX === 'undefined') {
+      statusText.textContent = 'SheetJS 라이브러리 로딩 중...';
+      await loadSheetJS();
+    }
+
+    progressBar.style.width = '20%';
+    statusText.textContent = '엑셀 파일 파싱 중...';
+
+    const data = await readExcelFile(file);
+
+    progressBar.style.width = '40%';
+    statusText.textContent = `${data.length}개의 예약 데이터 발견. 검증 중...`;
+
+    // Validate and transform data
+    const reservations = await validateAndTransformReservations(data);
+
+    progressBar.style.width = '60%';
+    statusText.textContent = `${reservations.length}개의 유효한 예약. 서버에 업로드 중...`;
+
+    // Upload to server
+    const result = await apiCall('/reservations/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ reservations })
+    });
+
+    progressBar.style.width = '100%';
+    statusText.textContent = '완료!';
+
+    showToast(`성공: ${result.created}건 생성, ${result.updated}건 업데이트, ${result.errors}건 오류`);
+
+    setTimeout(() => {
+      closeExcelUploadModal();
+      loadReservationsList();
+    }, 1500);
+
+  } catch (error) {
+    console.error('Excel upload error:', error);
+    showToast(`업로드 실패: ${error.message}`, 'error');
+    progressDiv.classList.add('hidden');
+  }
+}
+
+function loadSheetJS() {
+  return new Promise((resolve, reject) => {
+    if (typeof XLSX !== 'undefined') {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('SheetJS 라이브러리 로딩 실패'));
+    document.head.appendChild(script);
+  });
+}
+
+function readExcelFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        resolve(jsonData);
+      } catch (error) {
+        reject(new Error('엑셀 파일 파싱 실패: ' + error.message));
+      }
+    };
+
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function validateAndTransformReservations(data) {
+  const properties = await apiCall('/properties');
+
+  // Create room name to ID mapping
+  const roomMap = {};
+  properties.forEach(property => {
+    if (property.rooms) {
+      property.rooms.forEach(room => {
+        roomMap[room.name] = room.id;
+      });
+    }
+  });
+
+  const validReservations = [];
+  const errors = [];
+
+  data.forEach((row, index) => {
+    try {
+      // Required fields validation
+      const roomName = row['객실명'] || row['객실'] || row['room'];
+      const guestName = row['게스트명'] || row['투숙객'] || row['guest_name'];
+      const checkIn = row['체크인'] || row['checkin'] || row['check_in'];
+      const checkOut = row['체크아웃'] || row['checkout'] || row['check_out'];
+      const totalPrice = row['총금액'] || row['금액'] || row['price'];
+
+      if (!roomName || !guestName || !checkIn || !checkOut || !totalPrice) {
+        errors.push(`행 ${index + 2}: 필수 항목 누락 (객실명, 게스트명, 체크인, 체크아웃, 총금액)`);
+        return;
+      }
+
+      const roomId = roomMap[roomName];
+      if (!roomId) {
+        errors.push(`행 ${index + 2}: 객실 '${roomName}'을 찾을 수 없습니다`);
+        return;
+      }
+
+      // Parse dates
+      let checkInDate, checkOutDate;
+      try {
+        checkInDate = parseExcelDate(checkIn);
+        checkOutDate = parseExcelDate(checkOut);
+      } catch (e) {
+        errors.push(`행 ${index + 2}: 날짜 형식 오류 (YYYY-MM-DD 형식 사용)`);
+        return;
+      }
+
+      validReservations.push({
+        room_id: roomId,
+        guest_name: guestName,
+        guest_email: row['이메일'] || row['email'] || '',
+        guest_phone: row['전화번호'] || row['phone'] || '',
+        check_in: checkInDate,
+        check_out: checkOutDate,
+        num_guests: parseInt(row['인원수'] || row['인원'] || row['guests'] || '1'),
+        total_price: parseFloat(String(totalPrice).replace(/[^0-9.]/g, '')),
+        channel: row['채널'] || row['channel'] || 'DIRECT',
+        notes: row['메모'] || row['notes'] || '',
+        status: 'CONFIRMED'
+      });
+    } catch (error) {
+      errors.push(`행 ${index + 2}: ${error.message}`);
+    }
+  });
+
+  if (errors.length > 0) {
+    console.warn('Validation errors:', errors);
+    if (validReservations.length === 0) {
+      throw new Error('유효한 예약 데이터가 없습니다.\n' + errors.slice(0, 5).join('\n'));
+    }
+  }
+
+  return validReservations;
+}
+
+function parseExcelDate(value) {
+  // Handle Excel serial date numbers
+  if (typeof value === 'number') {
+    const date = new Date((value - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+
+  // Handle string dates
+  if (typeof value === 'string') {
+    // Try YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+
+    // Try parsing as date
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+  }
+
+  throw new Error('잘못된 날짜 형식');
 }
 
 router.register('reservations', loadReservations);

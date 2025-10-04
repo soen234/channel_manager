@@ -138,52 +138,53 @@ function showChannelModal(channel) {
     content.innerHTML = `
       <div class="space-y-4">
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <h4 class="font-semibold text-blue-900 mb-2">📘 연동 방법</h4>
+          <h4 class="font-semibold text-blue-900 mb-2">📘 iCal 연동 방법</h4>
           <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
             <li>Booking.com Extranet에 로그인</li>
-            <li>Settings → Channel Manager → API Access 메뉴로 이동</li>
-            <li>API Key와 Hotel ID를 확인</li>
-            <li>아래 양식에 정보를 입력하세요</li>
+            <li>숙소 선택 → Calendar → Sync calendars</li>
+            <li>"Export calendar" 섹션에서 iCal URL 복사</li>
+            <li>아래에 URL을 붙여넣으세요</li>
           </ol>
+          <p class="text-xs text-blue-700 mt-2">💡 iCal은 예약 정보를 자동으로 가져옵니다 (읽기 전용)</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Hotel ID *</label>
-          <input type="text" id="bookingHotelId" required
-            placeholder="예: 12345678"
+          <label class="block text-gray-700 text-sm font-bold mb-2">숙소 이름 *</label>
+          <input type="text" id="bookingPropertyName" required
+            placeholder="예: 서울 게스트하우스"
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <p class="text-xs text-gray-500 mt-1">Booking.com에서 부여받은 숙소 ID</p>
+          <p class="text-xs text-gray-500 mt-1">Booking.com에 등록된 숙소 이름</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">API Key *</label>
-          <input type="text" id="bookingApiKey" required
-            placeholder="예: abcd1234-efgh-5678-ijkl-9012mnop3456"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <p class="text-xs text-gray-500 mt-1">Booking.com API 키</p>
+          <label class="block text-gray-700 text-sm font-bold mb-2">iCal URL *</label>
+          <textarea id="bookingIcalUrl" required rows="3"
+            placeholder="예: https://admin.booking.com/hotel/hoteladmin/ical.html?id=12345678&token=abcd1234..."
+            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <p class="text-xs text-gray-500 mt-1">Booking.com에서 복사한 iCal Export URL</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">API Secret</label>
-          <input type="password" id="bookingApiSecret"
-            placeholder="API Secret (선택사항)"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <p class="text-xs text-gray-500 mt-1">일부 API에서 요구하는 Secret Key</p>
-        </div>
-
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 숙소 선택 *</label>
+          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 내부 숙소 선택 *</label>
           <select id="bookingPropertyId" required
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">-- 숙소를 선택하세요 --</option>
           </select>
+          <p class="text-xs text-gray-500 mt-1">시스템에 등록된 숙소 중 연동할 숙소를 선택하세요</p>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p class="text-xs text-yellow-800">
+            <strong>⚠️ 주의:</strong> iCal은 예약 정보만 가져올 수 있습니다.
+            재고/요금 업데이트는 Booking.com Extranet에서 직접 관리하세요.
+          </p>
         </div>
 
         <div class="flex items-center">
           <input type="checkbox" id="bookingAutoSync" checked
             class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
           <label for="bookingAutoSync" class="ml-2 text-sm text-gray-700">
-            자동 동기화 활성화 (5분마다)
+            자동 동기화 활성화 (1시간마다)
           </label>
         </div>
       </div>
@@ -192,59 +193,53 @@ function showChannelModal(channel) {
     content.innerHTML = `
       <div class="space-y-4">
         <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <h4 class="font-semibold text-green-900 mb-2">📗 연동 방법</h4>
+          <h4 class="font-semibold text-green-900 mb-2">📗 iCal 연동 방법</h4>
           <ol class="text-sm text-green-800 space-y-1 list-decimal list-inside">
             <li>야놀자 파트너센터에 로그인</li>
-            <li>설정 → API 연동 메뉴로 이동</li>
-            <li>API Key와 Partner Code를 확인</li>
-            <li>아래 양식에 정보를 입력하세요</li>
+            <li>숙소 관리 → 예약 캘린더 → 외부 캘린더 연동</li>
+            <li>"캘린더 내보내기" URL 복사</li>
+            <li>아래에 URL을 붙여넣으세요</li>
           </ol>
+          <p class="text-xs text-green-700 mt-2">💡 iCal은 예약 정보를 자동으로 가져옵니다 (읽기 전용)</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Partner Code *</label>
-          <input type="text" id="yanoljaPartnerCode" required
-            placeholder="예: YNJ-12345"
+          <label class="block text-gray-700 text-sm font-bold mb-2">숙소 이름 *</label>
+          <input type="text" id="yanoljaPropertyName" required
+            placeholder="예: 부산 호텔"
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-          <p class="text-xs text-gray-500 mt-1">야놀자 파트너 코드</p>
+          <p class="text-xs text-gray-500 mt-1">야놀자에 등록된 숙소 이름</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Property Code *</label>
-          <input type="text" id="yanoljaPropertyCode" required
-            placeholder="예: PROP-67890"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-          <p class="text-xs text-gray-500 mt-1">야놀자에 등록된 숙소 코드</p>
+          <label class="block text-gray-700 text-sm font-bold mb-2">iCal URL *</label>
+          <textarea id="yanoljaIcalUrl" required rows="3"
+            placeholder="예: https://www.yanolja.com/partner/ical/export?property_id=12345&token=abcd..."
+            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
+          <p class="text-xs text-gray-500 mt-1">야놀자에서 복사한 iCal Export URL</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">API Key *</label>
-          <input type="text" id="yanoljaApiKey" required
-            placeholder="예: ynj_1234567890abcdef"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-          <p class="text-xs text-gray-500 mt-1">야놀자 API 키</p>
-        </div>
-
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">API Secret</label>
-          <input type="password" id="yanoljaApiSecret"
-            placeholder="API Secret (선택사항)"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-        </div>
-
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 숙소 선택 *</label>
+          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 내부 숙소 선택 *</label>
           <select id="yanoljaPropertyId" required
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
             <option value="">-- 숙소를 선택하세요 --</option>
           </select>
+          <p class="text-xs text-gray-500 mt-1">시스템에 등록된 숙소 중 연동할 숙소를 선택하세요</p>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p class="text-xs text-yellow-800">
+            <strong>⚠️ 주의:</strong> iCal은 예약 정보만 가져올 수 있습니다.
+            재고/요금 업데이트는 야놀자 파트너센터에서 직접 관리하세요.
+          </p>
         </div>
 
         <div class="flex items-center">
           <input type="checkbox" id="yanoljaAutoSync" checked
             class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
           <label for="yanoljaAutoSync" class="ml-2 text-sm text-gray-700">
-            자동 동기화 활성화 (5분마다)
+            자동 동기화 활성화 (1시간마다)
           </label>
         </div>
       </div>
@@ -253,61 +248,53 @@ function showChannelModal(channel) {
     content.innerHTML = `
       <div class="space-y-4">
         <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <h4 class="font-semibold text-red-900 mb-2">📕 연동 방법</h4>
+          <h4 class="font-semibold text-red-900 mb-2">📕 iCal 연동 방법</h4>
           <ol class="text-sm text-red-800 space-y-1 list-decimal list-inside">
             <li>Airbnb 호스트 대시보드에 로그인</li>
-            <li>계정 → 통합 및 연결 → API 설정 메뉴로 이동</li>
-            <li>OAuth 앱을 생성하고 Client ID/Secret을 확인</li>
-            <li>Redirect URI: <code class="bg-white px-1 rounded">${window.location.origin}/api/auth/airbnb/callback</code></li>
-            <li>아래 양식에 정보를 입력하세요</li>
+            <li>숙소 선택 → Calendar → Availability settings</li>
+            <li>"Sync calendars" → "Export calendar" 링크 복사</li>
+            <li>아래에 URL을 붙여넣으세요</li>
           </ol>
+          <p class="text-xs text-red-700 mt-2">💡 iCal은 예약 정보를 자동으로 가져옵니다 (읽기 전용)</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Listing ID *</label>
-          <input type="text" id="airbnbListingId" required
-            placeholder="예: 12345678"
+          <label class="block text-gray-700 text-sm font-bold mb-2">숙소 이름 *</label>
+          <input type="text" id="airbnbPropertyName" required
+            placeholder="예: 제주 풀빌라"
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-          <p class="text-xs text-gray-500 mt-1">Airbnb 숙소 등록 ID</p>
+          <p class="text-xs text-gray-500 mt-1">Airbnb에 등록된 숙소 이름</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Client ID *</label>
-          <input type="text" id="airbnbClientId" required
-            placeholder="예: d12345abcdefg"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-          <p class="text-xs text-gray-500 mt-1">Airbnb OAuth Client ID</p>
-        </div>
-
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Client Secret *</label>
-          <input type="password" id="airbnbClientSecret" required
-            placeholder="Client Secret"
-            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-          <p class="text-xs text-gray-500 mt-1">Airbnb OAuth Client Secret</p>
-        </div>
-
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Access Token</label>
-          <textarea id="airbnbAccessToken" rows="3"
-            placeholder="OAuth 인증 후 발급받은 Access Token (선택사항)"
+          <label class="block text-gray-700 text-sm font-bold mb-2">iCal URL *</label>
+          <textarea id="airbnbIcalUrl" required rows="3"
+            placeholder="예: https://www.airbnb.com/calendar/ical/12345678.ics?s=abcdef123456..."
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"></textarea>
-          <p class="text-xs text-gray-500 mt-1">이미 발급받은 토큰이 있다면 입력하세요</p>
+          <p class="text-xs text-gray-500 mt-1">Airbnb에서 복사한 iCal Export URL</p>
         </div>
 
         <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 숙소 선택 *</label>
+          <label class="block text-gray-700 text-sm font-bold mb-2">연동할 내부 숙소 선택 *</label>
           <select id="airbnbPropertyId" required
             class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
             <option value="">-- 숙소를 선택하세요 --</option>
           </select>
+          <p class="text-xs text-gray-500 mt-1">시스템에 등록된 숙소 중 연동할 숙소를 선택하세요</p>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p class="text-xs text-yellow-800">
+            <strong>⚠️ 주의:</strong> iCal은 예약 정보만 가져올 수 있습니다.
+            재고/요금 업데이트는 Airbnb 호스트 대시보드에서 직접 관리하세요.
+          </p>
         </div>
 
         <div class="flex items-center">
           <input type="checkbox" id="airbnbAutoSync" checked
             class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
           <label for="airbnbAutoSync" class="ml-2 text-sm text-gray-700">
-            자동 동기화 활성화 (5분마다)
+            자동 동기화 활성화 (1시간마다)
           </label>
         </div>
       </div>
@@ -353,73 +340,85 @@ async function saveChannelConnection() {
     let data = {};
 
     if (currentChannel === 'booking') {
-      const hotelId = document.getElementById('bookingHotelId').value;
-      const apiKey = document.getElementById('bookingApiKey').value;
-      const apiSecret = document.getElementById('bookingApiSecret').value;
+      const propertyName = document.getElementById('bookingPropertyName').value;
+      const icalUrl = document.getElementById('bookingIcalUrl').value;
       const propertyId = document.getElementById('bookingPropertyId').value;
       const autoSync = document.getElementById('bookingAutoSync').checked;
 
-      if (!hotelId || !apiKey || !propertyId) {
+      if (!propertyName || !icalUrl || !propertyId) {
         showToast('필수 항목을 모두 입력해주세요.', 'error');
+        return;
+      }
+
+      // iCal URL 유효성 검사
+      if (!icalUrl.startsWith('http')) {
+        showToast('올바른 iCal URL을 입력해주세요.', 'error');
         return;
       }
 
       data = {
         channel: 'BOOKING_COM',
         propertyId,
-        channelPropertyId: hotelId,
+        channelPropertyId: propertyName,
         credentials: JSON.stringify({
-          apiKey,
-          apiSecret,
-          autoSync
+          icalUrl,
+          propertyName,
+          autoSync,
+          syncType: 'ical'
         })
       };
     } else if (currentChannel === 'yanolja') {
-      const partnerCode = document.getElementById('yanoljaPartnerCode').value;
-      const propertyCode = document.getElementById('yanoljaPropertyCode').value;
-      const apiKey = document.getElementById('yanoljaApiKey').value;
-      const apiSecret = document.getElementById('yanoljaApiSecret').value;
+      const propertyName = document.getElementById('yanoljaPropertyName').value;
+      const icalUrl = document.getElementById('yanoljaIcalUrl').value;
       const propertyId = document.getElementById('yanoljaPropertyId').value;
       const autoSync = document.getElementById('yanoljaAutoSync').checked;
 
-      if (!partnerCode || !propertyCode || !apiKey || !propertyId) {
+      if (!propertyName || !icalUrl || !propertyId) {
         showToast('필수 항목을 모두 입력해주세요.', 'error');
+        return;
+      }
+
+      if (!icalUrl.startsWith('http')) {
+        showToast('올바른 iCal URL을 입력해주세요.', 'error');
         return;
       }
 
       data = {
         channel: 'YANOLJA',
         propertyId,
-        channelPropertyId: propertyCode,
+        channelPropertyId: propertyName,
         credentials: JSON.stringify({
-          partnerCode,
-          apiKey,
-          apiSecret,
-          autoSync
+          icalUrl,
+          propertyName,
+          autoSync,
+          syncType: 'ical'
         })
       };
     } else if (currentChannel === 'airbnb') {
-      const listingId = document.getElementById('airbnbListingId').value;
-      const clientId = document.getElementById('airbnbClientId').value;
-      const clientSecret = document.getElementById('airbnbClientSecret').value;
-      const accessToken = document.getElementById('airbnbAccessToken').value;
+      const propertyName = document.getElementById('airbnbPropertyName').value;
+      const icalUrl = document.getElementById('airbnbIcalUrl').value;
       const propertyId = document.getElementById('airbnbPropertyId').value;
       const autoSync = document.getElementById('airbnbAutoSync').checked;
 
-      if (!listingId || !clientId || !clientSecret || !propertyId) {
+      if (!propertyName || !icalUrl || !propertyId) {
         showToast('필수 항목을 모두 입력해주세요.', 'error');
+        return;
+      }
+
+      if (!icalUrl.startsWith('http')) {
+        showToast('올바른 iCal URL을 입력해주세요.', 'error');
         return;
       }
 
       data = {
         channel: 'AIRBNB',
         propertyId,
-        channelPropertyId: listingId,
+        channelPropertyId: propertyName,
         credentials: JSON.stringify({
-          clientId,
-          clientSecret,
-          accessToken,
-          autoSync
+          icalUrl,
+          propertyName,
+          autoSync,
+          syncType: 'ical'
         })
       };
     }

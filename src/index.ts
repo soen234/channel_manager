@@ -68,13 +68,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Start server
-app.listen(port, () => {
-  logger.info(`Channel Manager server running on port ${port}`);
+// Start server (only if not in Vercel)
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    logger.info(`Channel Manager server running on port ${port}`);
 
-  // 동기화 스케줄러 시작
-  const scheduler = new SyncScheduler();
-  scheduler.start();
-});
+    // 동기화 스케줄러 시작
+    const scheduler = new SyncScheduler();
+    scheduler.start();
+  });
+}
 
 export default app;

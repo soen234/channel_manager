@@ -150,6 +150,12 @@ async function loadRoomStatusData() {
 function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
   const container = document.getElementById('roomStatusContent');
 
+  // Check if container exists
+  if (!container) {
+    console.error('roomStatusContent element not found');
+    return;
+  }
+
   // 날짜 배열 생성
   const dates = [];
   const start = new Date(startDate);

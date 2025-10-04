@@ -253,45 +253,56 @@ async function refreshDashboard() {
       apiCall('/reservations?limit=5')
     ]);
 
-    document.getElementById('todayCheckIns').textContent = dashboardData.todayCheckIns || 0;
-    document.getElementById('todayCheckOuts').textContent = dashboardData.todayCheckOuts || 0;
-    document.getElementById('upcomingReservations').textContent = dashboardData.nextMonthReservations || 0;
-    document.getElementById('totalProperties').textContent = dashboardData.totalProperties || 0;
+    // Check if elements exist before updating
+    const todayCheckInsEl = document.getElementById('todayCheckIns');
+    const todayCheckOutsEl = document.getElementById('todayCheckOuts');
+    const upcomingReservationsEl = document.getElementById('upcomingReservations');
+    const totalPropertiesEl = document.getElementById('totalProperties');
+
+    if (todayCheckInsEl) todayCheckInsEl.textContent = dashboardData.todayCheckIns || 0;
+    if (todayCheckOutsEl) todayCheckOutsEl.textContent = dashboardData.todayCheckOuts || 0;
+    if (upcomingReservationsEl) upcomingReservationsEl.textContent = dashboardData.nextMonthReservations || 0;
+    if (totalPropertiesEl) totalPropertiesEl.textContent = dashboardData.totalProperties || 0;
 
     // 채널별 통계
     const channelData = dashboardData.channelStats || [];
     channelData.forEach(item => {
       if (item.channel === 'BOOKING_COM') {
-        document.getElementById('bookingCount').textContent = item._count || 0;
+        const el = document.getElementById('bookingCount');
+        if (el) el.textContent = item._count || 0;
       } else if (item.channel === 'YANOLJA') {
-        document.getElementById('yanoljaCount').textContent = item._count || 0;
+        const el = document.getElementById('yanoljaCount');
+        if (el) el.textContent = item._count || 0;
       } else if (item.channel === 'AIRBNB') {
-        document.getElementById('airbnbCount').textContent = item._count || 0;
+        const el = document.getElementById('airbnbCount');
+        if (el) el.textContent = item._count || 0;
       }
     });
 
     // 최근 예약
     const tbody = document.getElementById('reservationsBody');
-    const recentReservations = dashboardData.recentReservations || [];
-    if (recentReservations.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">예약이 없습니다</td></tr>';
-    } else {
-      tbody.innerHTML = recentReservations.map(res => `
-        <tr class="border-b hover:bg-gray-50">
-          <td class="py-3 px-4">
-            <span class="inline-block px-2 py-1 text-xs rounded ${getChannelColor(res.channel)}">
-              ${getChannelName(res.channel)}
-            </span>
-          </td>
-          <td class="py-3 px-4">${res.guest_name}</td>
-          <td class="py-3 px-4 text-sm">${new Date(res.check_in).toLocaleDateString('ko-KR')}</td>
-          <td class="py-3 px-4">
-            <span class="inline-block px-2 py-1 text-xs rounded ${getStatusColor(res.status)}">
-              ${getStatusText(res.status)}
-            </span>
-          </td>
-        </tr>
-      `).join('');
+    if (tbody) {
+      const recentReservations = dashboardData.recentReservations || [];
+      if (recentReservations.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">예약이 없습니다</td></tr>';
+      } else {
+        tbody.innerHTML = recentReservations.map(res => `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="py-3 px-4">
+              <span class="inline-block px-2 py-1 text-xs rounded ${getChannelColor(res.channel)}">
+                ${getChannelName(res.channel)}
+              </span>
+            </td>
+            <td class="py-3 px-4">${res.guest_name}</td>
+            <td class="py-3 px-4 text-sm">${new Date(res.check_in).toLocaleDateString('ko-KR')}</td>
+            <td class="py-3 px-4">
+              <span class="inline-block px-2 py-1 text-xs rounded ${getStatusColor(res.status)}">
+                ${getStatusText(res.status)}
+              </span>
+            </td>
+          </tr>
+        `).join('');
+      }
     }
   } catch (error) {
     console.error('Dashboard refresh failed:', error);

@@ -226,7 +226,7 @@ async function saveProperty(event) {
 
   try {
     if (id) {
-      await apiCall(`/properties/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      await apiCall(`/properties?id=${id}`, { method: 'PUT', body: JSON.stringify(data) });
       showToast('숙소가 수정되었습니다.');
     } else {
       await apiCall('/properties', { method: 'POST', body: JSON.stringify(data) });
@@ -242,7 +242,7 @@ async function saveProperty(event) {
 
 async function editProperty(id) {
   try {
-    const property = await apiCall(`/properties/${id}`);
+    const property = await apiCall(`/properties?id=${id}`);
 
     document.getElementById('modalTitle').textContent = '숙소 수정';
     document.getElementById('propertyId').value = property.id;
@@ -259,7 +259,7 @@ async function deleteProperty(id) {
   if (!confirm('이 숙소를 삭제하시겠습니까?')) return;
 
   try {
-    await apiCall(`/properties/${id}`, { method: 'DELETE' });
+    await apiCall(`/properties?id=${id}`, { method: 'DELETE' });
     showToast('숙소가 삭제되었습니다.');
     await refreshProperties();
   } catch (error) {
@@ -290,7 +290,7 @@ async function saveRoom(event) {
   };
 
   try {
-    await apiCall(`/properties/${propertyId}/rooms`, {
+    await apiCall(`/properties?propertyId=${propertyId}`, {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -306,7 +306,7 @@ async function deleteRoom(propertyId, roomId) {
   if (!confirm('이 객실을 삭제하시겠습니까?')) return;
 
   try {
-    await apiCall(`/properties/${propertyId}/rooms/${roomId}`, { method: 'DELETE' });
+    await apiCall(`/properties?propertyId=${propertyId}&roomId=${roomId}`, { method: 'DELETE' });
     showToast('객실이 삭제되었습니다.');
     await refreshProperties();
   } catch (error) {

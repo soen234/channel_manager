@@ -61,6 +61,9 @@ async function loadReservations() {
     </div>
   `;
 
+  // Wait for DOM to be ready
+  await new Promise(resolve => setTimeout(resolve, 0));
+
   await loadReservationsList();
 }
 

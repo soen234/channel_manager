@@ -115,6 +115,9 @@ async function loadChannels() {
     </div>
   `;
 
+  // Wait for DOM to be ready
+  await new Promise(resolve => setTimeout(resolve, 0));
+
   await loadChannelMappings();
 }
 
@@ -437,6 +440,11 @@ async function loadChannelMappings() {
   try {
     const properties = await apiCall('/properties');
     const container = document.getElementById('channelMappingsList');
+
+    if (!container) {
+      console.error('channelMappingsList element not found');
+      return;
+    }
 
     // 채널 매핑 정보 수집
     const mappings = [];

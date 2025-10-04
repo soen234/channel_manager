@@ -86,14 +86,20 @@
       </nav>
 
       <div class="absolute bottom-0 w-64 p-6 border-t">
-        <div class="flex items-center">
-          <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-            A
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+              <span id="userInitial">U</span>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-semibold text-gray-700" id="userEmail">사용자</p>
+            </div>
           </div>
-          <div class="ml-3">
-            <p class="text-sm font-semibold text-gray-700">관리자</p>
-            <p class="text-xs text-gray-500">admin@channel.com</p>
-          </div>
+          <button onclick="logout()" class="text-gray-500 hover:text-red-600" title="로그아웃">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </aside>
@@ -134,6 +140,21 @@
   <script src="/js/reservations.js"></script>
 
   <script>
+    // 인증 체크 및 초기화
+    if (!checkAuth()) {
+      // checkAuth()가 false를 반환하면 이미 로그인 페이지로 리다이렉트됨
+    } else {
+      // 사용자 정보 표시
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.email) {
+        document.getElementById('userEmail').textContent = user.email;
+        document.getElementById('userInitial').textContent = user.email.charAt(0).toUpperCase();
+      }
+
+      // 라우터 초기화
+      router.init();
+    }
+
     // 현재 시간 업데이트
     function updateTime() {
       const now = new Date();
@@ -144,7 +165,10 @@
         hour: '2-digit',
         minute: '2-digit'
       });
-      document.getElementById('currentTime').textContent = timeStr;
+      const timeEl = document.getElementById('currentTime');
+      if (timeEl) {
+        timeEl.textContent = timeStr;
+      }
     }
 
     updateTime();

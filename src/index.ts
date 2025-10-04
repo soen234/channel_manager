@@ -7,11 +7,13 @@ import { logger } from './utils/logger';
 import { SyncScheduler } from './sync/sync.scheduler';
 
 // Routes
+import authRoutes from './api/routes/auth.routes';
 import propertyRoutes from './api/routes/property.routes';
 import reservationRoutes from './api/routes/reservation.routes';
 import inventoryRoutes from './api/routes/inventory.routes';
 import pricingRoutes from './api/routes/pricing.routes';
 import dashboardRoutes from './api/routes/dashboard.routes';
+import { authMiddleware } from './middleware/auth.middleware';
 
 dotenv.config();
 
@@ -48,12 +50,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
-app.use('/api/properties', propertyRoutes);
-app.use('/api/reservations', reservationRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/pricing', pricingRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+// Public routes (no auth required)
+app.use('/api/auth', authRoutes);
+
+// Protected routes (auth required)
+app.use('/api/properties', authMiddleware, propertyRoutes);
+app.use('/api/reservations', authMiddleware, reservationRoutes);
+app.use('/api/inventory', authMiddleware, inventoryRoutes);
+app.use('/api/pricing', authMiddleware, pricingRoutes);
+app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

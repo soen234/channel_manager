@@ -1,5 +1,22 @@
 const API_BASE = '/api';
 
+// 인증 체크
+function checkAuth() {
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    window.location.href = '/login.html';
+    return false;
+  }
+  return true;
+}
+
+// 로그아웃
+function logout() {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
+  window.location.href = '/login.html';
+}
+
 // 라우팅 시스템
 class Router {
   constructor() {
@@ -45,9 +62,11 @@ const router = new Router();
 // API 호출 헬퍼
 async function apiCall(endpoint, options = {}) {
   try {
+    const token = localStorage.getItem('auth_token');
     const response = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
         ...options.headers
       },
       ...options

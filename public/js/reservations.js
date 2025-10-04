@@ -87,6 +87,11 @@ async function loadReservationsList() {
 function renderReservationsList(reservations) {
   const container = document.getElementById('reservationsList');
 
+  if (!container) {
+    console.error('reservationsList element not found');
+    return;
+  }
+
   if (reservations.length === 0) {
     container.innerHTML = `
       <div class="text-center py-12">

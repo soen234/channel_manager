@@ -85,6 +85,11 @@ async function loadPropertyListForStatus() {
     const properties = await apiCall('/properties');
     const select = document.getElementById('statusPropertyId');
 
+    if (!select) {
+      console.error('statusPropertyId element not found');
+      return;
+    }
+
     select.innerHTML = '<option value="">전체 숙소</option>' +
       properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   } catch (error) {
@@ -93,9 +98,18 @@ async function loadPropertyListForStatus() {
 }
 
 async function loadRoomStatusData() {
-  const propertyId = document.getElementById('statusPropertyId').value;
-  const startDate = document.getElementById('statusStartDate').value;
-  const endDate = document.getElementById('statusEndDate').value;
+  const propertyIdEl = document.getElementById('statusPropertyId');
+  const startDateEl = document.getElementById('statusStartDate');
+  const endDateEl = document.getElementById('statusEndDate');
+
+  if (!propertyIdEl || !startDateEl || !endDateEl) {
+    console.error('Required form elements not found');
+    return;
+  }
+
+  const propertyId = propertyIdEl.value;
+  const startDate = startDateEl.value;
+  const endDate = endDateEl.value;
 
   if (!startDate || !endDate) {
     showToast('시작일과 종료일을 선택해주세요.', 'error');

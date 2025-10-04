@@ -52,6 +52,11 @@ async function loadPropertyList() {
     const properties = await apiCall('/properties');
     const select = document.getElementById('selectedProperty');
 
+    if (!select) {
+      console.error('selectedProperty element not found');
+      return;
+    }
+
     select.innerHTML = '<option value="">-- 숙소를 선택하세요 --</option>' +
       properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   } catch (error) {
@@ -60,12 +65,20 @@ async function loadPropertyList() {
 }
 
 async function loadPropertyRooms() {
-  const propertyId = document.getElementById('selectedProperty').value;
+  const propertySelect = document.getElementById('selectedProperty');
   const roomSelect = document.getElementById('selectedRoom');
+  const inventoryContent = document.getElementById('inventoryContent');
+
+  if (!propertySelect || !roomSelect || !inventoryContent) {
+    console.error('Required form elements not found');
+    return;
+  }
+
+  const propertyId = propertySelect.value;
 
   if (!propertyId) {
     roomSelect.innerHTML = '<option value="">-- 객실을 선택하세요 --</option>';
-    document.getElementById('inventoryContent').innerHTML = `
+    inventoryContent.innerHTML = `
       <div class="text-center py-8 text-gray-500">숙소와 객실을 선택하세요</div>
     `;
     return;

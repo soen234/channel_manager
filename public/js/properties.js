@@ -122,6 +122,11 @@ async function refreshProperties() {
     const properties = await apiCall('/properties');
     const container = document.getElementById('propertiesList');
 
+    if (!container) {
+      console.error('propertiesList element not found');
+      return;
+    }
+
     if (properties.length === 0) {
       container.innerHTML = `
         <div class="text-center py-12">

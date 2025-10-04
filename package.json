@@ -21,6 +21,9 @@
     "hotel",
     "pms"
   ],
+  "engines": {
+    "node": "18.x"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {

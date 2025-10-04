@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 숙소 정보
+model Property {
+  id          String   @id @default(uuid())
+  name        String
+  address     String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms       Room[]
+  channelMappings ChannelMapping[]
+}
+
+// 객실 정보
+model Room {
+  id          String   @id @default(uuid())
+  propertyId  String
+  name        String
+  type        String
+  totalRooms  Int      @default(1)
+  capacity    Int
+  basePrice   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inventory   Inventory[]
+  pricing     Pricing[]
+  reservations Reservation[]
+  channelRoomMappings ChannelRoomMapping[]
+
+  @@index([propertyId])
+}
+
+// 채널 매핑 (Property 레벨)
+model ChannelMapping {
+  id          String   @id @default(uuid())
+  propertyId  String
+  channel     String
+  channelPropertyId String
+  isActive    Boolean  @default(true)
+  credentials String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, channel])
+  @@index([propertyId])
+}
+
+// 채널 객실 매핑 (Room 레벨)
+model ChannelRoomMapping {
+  id          String   @id @default(uuid())
+  roomId      String
+  channel     String
+  channelRoomId String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, channel])
+  @@index([roomId])
+}
+
+// 재고 관리
+model Inventory {
+  id          String   @id @default(uuid())
+  roomId      String
+  date        DateTime
+  available   Int
+  total       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, date])
+  @@index([roomId, date])
+}
+
+// 요금 관리
+model Pricing {
+  id          String   @id @default(uuid())
+  roomId      String
+  date        DateTime
+  price       Float
+  currency    String   @default("KRW")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, date])
+  @@index([roomId, date])
+}
+
+// 예약 정보
+model Reservation {
+  id              String   @id @default(uuid())
+  roomId          String
+  channel         String
+  channelReservationId String
+  guestName       String
+  guestEmail      String?
+  guestPhone      String?
+  checkIn         DateTime
+  checkOut        DateTime
+  numberOfGuests  Int
+  totalPrice      Float
+  currency        String   @default("KRW")
+  status          String   @default("CONFIRMED")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  room            Room     @relation(fields: [roomId], references: [id])
+
+  @@unique([channel, channelReservationId])
+  @@index([roomId])
+  @@index([checkIn, checkOut])
+}
+
+// 동기화 로그
+model SyncLog {
+  id          String   @id @default(uuid())
+  channel     String
+  syncType    String
+  status      String
+  message     String?
+  errorDetail String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([channel, syncType])
+  @@index([startedAt])
+}

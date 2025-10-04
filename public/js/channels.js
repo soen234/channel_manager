@@ -473,36 +473,52 @@ async function loadChannelMappings() {
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">숙소</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">채널 숙소 ID</th>
               <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">상태</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">마지막 동기화</th>
               <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            ${mappings.map(mapping => `
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3">
-                  <span class="inline-block px-2 py-1 text-xs rounded ${getChannelColor(mapping.channel)}">
-                    ${getChannelName(mapping.channel)}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-900">${mapping.property_name}</td>
-                <td class="px-4 py-3 text-sm text-gray-600">${mapping.channel_property_id}</td>
-                <td class="px-4 py-3 text-center">
-                  <span class="inline-block px-2 py-1 text-xs rounded ${mapping.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                    ${mapping.is_active ? '활성' : '비활성'}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-center">
-                  <button onclick="testChannelConnection('${mapping.id}')"
-                    class="text-blue-600 hover:text-blue-800 text-sm mr-2">
-                    테스트
-                  </button>
-                  <button onclick="deleteChannelMapping('${mapping.id}')"
-                    class="text-red-600 hover:text-red-800 text-sm">
-                    삭제
-                  </button>
-                </td>
-              </tr>
-            `).join('')}
+            ${mappings.map(mapping => {
+              const lastSync = mapping.last_sync
+                ? new Date(mapping.last_sync).toLocaleString('ko-KR', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : '동기화 안됨';
+
+              return `
+                <tr class="hover:bg-gray-50">
+                  <td class="px-4 py-3">
+                    <span class="inline-block px-2 py-1 text-xs rounded ${getChannelColor(mapping.channel)}">
+                      ${getChannelName(mapping.channel)}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-900">${mapping.property_name}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600">${mapping.channel_property_id}</td>
+                  <td class="px-4 py-3 text-center">
+                    <span class="inline-block px-2 py-1 text-xs rounded ${mapping.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                      ${mapping.is_active ? '활성' : '비활성'}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-center text-xs text-gray-600">
+                    ${lastSync}
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <button onclick="syncChannelNow('${mapping.id}')"
+                      class="text-green-600 hover:text-green-800 text-sm mr-2"
+                      title="지금 동기화">
+                      🔄 동기화
+                    </button>
+                    <button onclick="deleteChannelMapping('${mapping.id}')"
+                      class="text-red-600 hover:text-red-800 text-sm">
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -542,13 +558,38 @@ function updateChannelStatus(mappings) {
   });
 }
 
-async function testChannelConnection(mappingId) {
-  showToast('채널 연결 테스트 기능은 준비 중입니다.', 'error');
+async function syncChannelNow(mappingId) {
+  try {
+    showToast('동기화를 시작합니다...', 'info');
+
+    const result = await apiCall('/channels/sync-ical', {
+      method: 'POST',
+      body: JSON.stringify({ channelMappingId: mappingId })
+    });
+
+    if (result.success) {
+      showToast(`동기화 완료! 생성: ${result.created}건, 중복: ${result.skipped}건, 오류: ${result.errors}건`);
+      await loadChannelMappings();
+    } else {
+      showToast('동기화에 실패했습니다.', 'error');
+    }
+  } catch (error) {
+    console.error('Sync error:', error);
+    showToast(`동기화 중 오류 발생: ${error.message}`, 'error');
+  }
 }
 
 async function deleteChannelMapping(mappingId) {
   if (!confirm('이 채널 연동을 삭제하시겠습니까?')) return;
-  showToast('채널 연동 삭제 기능은 준비 중입니다.', 'error');
+
+  try {
+    await apiCall(`/channels?id=${mappingId}`, { method: 'DELETE' });
+    showToast('채널 연동이 삭제되었습니다.');
+    await loadChannelMappings();
+  } catch (error) {
+    console.error('Delete error:', error);
+    showToast('삭제 중 오류가 발생했습니다.', 'error');
+  }
 }
 
 router.register('channels', loadChannels);

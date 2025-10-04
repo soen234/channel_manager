@@ -161,12 +161,24 @@
           throw new Error(data.error || '회원가입 실패');
         }
 
-        showMessage('회원가입 성공! 이메일을 확인해주세요.');
+        // 세션이 있으면 바로 로그인 처리
+        if (data.session && data.session.access_token) {
+          localStorage.setItem('auth_token', data.session.access_token);
+          localStorage.setItem('user', JSON.stringify(data.user));
 
-        // 로그인 폼으로 전환
-        setTimeout(() => {
-          showLogin();
-        }, 2000);
+          showMessage('회원가입 성공! 로그인 중...');
+
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1000);
+        } else {
+          // 세션이 없으면 이메일 확인 필요
+          showMessage('회원가입 성공! 이메일을 확인해주세요.');
+
+          setTimeout(() => {
+            showLogin();
+          }, 2000);
+        }
       } catch (error) {
         showMessage(error.message, true);
       }

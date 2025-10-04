@@ -58,12 +58,13 @@ async function loadProperties() {
       </div>
     </div>
 
-    <!-- 객실 추가 모달 -->
+    <!-- 객실 추가/수정 모달 -->
     <div id="roomModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-        <h2 class="text-2xl font-bold mb-4">객실 추가</h2>
+        <h2 class="text-2xl font-bold mb-4" id="roomModalTitle">객실 추가</h2>
         <form id="roomForm" onsubmit="saveRoom(event)">
           <input type="hidden" id="roomPropertyId">
+          <input type="hidden" id="roomId">
 
           <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2">객실명</label>
@@ -184,12 +185,22 @@ async function refreshProperties() {
                       <p class="text-sm text-gray-500">수용인원: 최대 ${room.capacity}명/객실</p>
                       <p class="text-sm font-semibold text-blue-600 mt-1">${parseFloat(room.base_price).toLocaleString()}원/박</p>
                     </div>
-                    <button onclick="deleteRoom('${property.id}', '${room.id}')"
-                      class="text-red-500 hover:text-red-700 text-sm ml-2">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    </button>
+                    <div class="flex flex-col gap-1">
+                      <button onclick="editRoom('${property.id}', '${room.id}')"
+                        class="text-blue-500 hover:text-blue-700 text-sm"
+                        title="수정">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                      </button>
+                      <button onclick="deleteRoom('${property.id}', '${room.id}')"
+                        class="text-red-500 hover:text-red-700 text-sm"
+                        title="삭제">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               `).join('')}
@@ -268,8 +279,10 @@ async function deleteProperty(id) {
 }
 
 function showAddRoomModal(propertyId) {
+  document.getElementById('roomModalTitle').textContent = '객실 추가';
   document.getElementById('roomForm').reset();
   document.getElementById('roomPropertyId').value = propertyId;
+  document.getElementById('roomId').value = '';
   document.getElementById('roomModal').classList.remove('hidden');
 }
 
@@ -277,10 +290,42 @@ function closeRoomModal() {
   document.getElementById('roomModal').classList.add('hidden');
 }
 
+async function editRoom(propertyId, roomId) {
+  try {
+    const properties = await apiCall('/properties');
+    const property = properties.find(p => p.id === propertyId);
+
+    if (!property) {
+      showToast('숙소를 찾을 수 없습니다.', 'error');
+      return;
+    }
+
+    const room = property.rooms.find(r => r.id === roomId);
+
+    if (!room) {
+      showToast('객실을 찾을 수 없습니다.', 'error');
+      return;
+    }
+
+    document.getElementById('roomModalTitle').textContent = '객실 수정';
+    document.getElementById('roomPropertyId').value = propertyId;
+    document.getElementById('roomId').value = roomId;
+    document.getElementById('roomName').value = room.name;
+    document.getElementById('roomType').value = room.type;
+    document.getElementById('roomTotalRooms').value = room.total_rooms || 1;
+    document.getElementById('roomCapacity').value = room.capacity;
+    document.getElementById('roomBasePrice').value = room.base_price;
+    document.getElementById('roomModal').classList.remove('hidden');
+  } catch (error) {
+    showToast('객실 정보를 불러오는데 실패했습니다.', 'error');
+  }
+}
+
 async function saveRoom(event) {
   event.preventDefault();
 
   const propertyId = document.getElementById('roomPropertyId').value;
+  const roomId = document.getElementById('roomId').value;
   const data = {
     name: document.getElementById('roomName').value,
     type: document.getElementById('roomType').value,
@@ -290,11 +335,21 @@ async function saveRoom(event) {
   };
 
   try {
-    await apiCall(`/properties?propertyId=${propertyId}`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-    showToast('객실이 추가되었습니다.');
+    if (roomId) {
+      // Update existing room
+      await apiCall(`/properties?propertyId=${propertyId}&roomId=${roomId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      showToast('객실이 수정되었습니다.');
+    } else {
+      // Create new room
+      await apiCall(`/properties?propertyId=${propertyId}`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      showToast('객실이 추가되었습니다.');
+    }
     closeRoomModal();
     await refreshProperties();
   } catch (error) {

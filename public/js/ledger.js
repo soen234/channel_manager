@@ -50,7 +50,7 @@ async function loadLedger() {
     </div>
   `;
 
-  await new Promise(resolve => setTimeout(resolve, 50));
+  await new Promise(resolve => setTimeout(resolve, 100));
   window.currentLedgerTab = 'revenue';
   await loadLedgerData();
 }

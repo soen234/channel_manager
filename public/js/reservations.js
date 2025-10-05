@@ -117,7 +117,7 @@ async function loadReservations() {
   `;
 
   // Wait for DOM elements to be ready
-  await new Promise(resolve => setTimeout(resolve, 50));
+  await new Promise(resolve => setTimeout(resolve, 100));
   await loadReservationsList();
 }
 

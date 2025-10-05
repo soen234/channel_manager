@@ -69,20 +69,23 @@ async function loadReservations() {
         <h2 class="text-2xl font-bold mb-4">예약 엑셀 파일 업로드</h2>
 
         <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 class="font-semibold text-blue-900 mb-2">📋 엑셀 파일 형식</h3>
-          <p class="text-sm text-blue-800 mb-2">첫 번째 행에 다음 컬럼명을 포함해야 합니다:</p>
-          <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
-            <li><strong>객실명</strong> (필수): 시스템에 등록된 객실명과 일치해야 함</li>
-            <li><strong>게스트명</strong> (필수)</li>
-            <li><strong>체크인</strong> (필수): YYYY-MM-DD 형식</li>
-            <li><strong>체크아웃</strong> (필수): YYYY-MM-DD 형식</li>
-            <li><strong>총금액</strong> (필수): 숫자만 입력</li>
-            <li><strong>인원수</strong> (선택): 기본값 1</li>
-            <li><strong>이메일</strong> (선택)</li>
-            <li><strong>전화번호</strong> (선택)</li>
-            <li><strong>채널</strong> (선택): BOOKING_COM, YANOLJA, AIRBNB, DIRECT 중 하나</li>
-            <li><strong>메모</strong> (선택)</li>
+          <h3 class="font-semibold text-blue-900 mb-2">📋 지원되는 엑셀 형식</h3>
+          <p class="text-sm text-blue-800 mb-2"><strong>✅ 자동 인식 지원:</strong></p>
+          <ul class="text-sm text-blue-800 list-disc list-inside space-y-1 mb-3">
+            <li><strong>Booking.com</strong> 내보내기 파일 (체크인, 체크아웃, 투숙객, 객실 유형, 요금 등)</li>
+            <li><strong>야놀자</strong> 예약목록 파일 (입실일시, 퇴실일시, 예약자, 객실타입, 판매금액 등)</li>
+            <li><strong>사용자 정의</strong> 형식 (아래 컬럼명 사용)</li>
           </ul>
+          <p class="text-sm text-blue-800 mb-2"><strong>사용자 정의 형식 컬럼명:</strong></p>
+          <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
+            <li><strong>객실명/객실</strong> (필수): 시스템에 등록된 객실명과 일치</li>
+            <li><strong>게스트명/투숙객</strong> (필수)</li>
+            <li><strong>체크인/입실일시</strong> (필수)</li>
+            <li><strong>체크아웃/퇴실일시</strong> (필수)</li>
+            <li><strong>총금액/판매금액</strong> (필수)</li>
+            <li>인원수, 이메일, 전화번호, 메모 (선택)</li>
+          </ul>
+          <p class="text-xs text-blue-700 mt-2">💡 채널 형식을 자동으로 감지하여 처리합니다.</p>
         </div>
 
         <div class="mb-6">
@@ -384,12 +387,14 @@ function readExcelFile(file) {
 async function validateAndTransformReservations(data) {
   const properties = await apiCall('/properties');
 
-  // Create room name to ID mapping
+  // Create room name to ID mapping (including variations)
   const roomMap = {};
   properties.forEach(property => {
     if (property.rooms) {
       property.rooms.forEach(room => {
         roomMap[room.name] = room.id;
+        // Also map without spaces for fuzzy matching
+        roomMap[room.name.replace(/\s+/g, '')] = room.id;
       });
     }
   });
@@ -399,46 +404,47 @@ async function validateAndTransformReservations(data) {
 
   data.forEach((row, index) => {
     try {
-      // Required fields validation
-      const roomName = row['객실명'] || row['객실'] || row['room'];
-      const guestName = row['게스트명'] || row['투숙객'] || row['guest_name'];
-      const checkIn = row['체크인'] || row['checkin'] || row['check_in'];
-      const checkOut = row['체크아웃'] || row['checkout'] || row['check_out'];
-      const totalPrice = row['총금액'] || row['금액'] || row['price'];
+      // Detect channel format and extract data
+      const extracted = extractReservationData(row);
 
-      if (!roomName || !guestName || !checkIn || !checkOut || !totalPrice) {
+      if (!extracted.roomName || !extracted.guestName || !extracted.checkIn || !extracted.checkOut || !extracted.totalPrice) {
         errors.push(`행 ${index + 2}: 필수 항목 누락 (객실명, 게스트명, 체크인, 체크아웃, 총금액)`);
         return;
       }
 
-      const roomId = roomMap[roomName];
+      // Find room ID (try exact match first, then without spaces)
+      let roomId = roomMap[extracted.roomName];
       if (!roomId) {
-        errors.push(`행 ${index + 2}: 객실 '${roomName}'을 찾을 수 없습니다`);
+        roomId = roomMap[extracted.roomName.replace(/\s+/g, '')];
+      }
+
+      if (!roomId) {
+        errors.push(`행 ${index + 2}: 객실 '${extracted.roomName}'을 찾을 수 없습니다`);
         return;
       }
 
       // Parse dates
       let checkInDate, checkOutDate;
       try {
-        checkInDate = parseExcelDate(checkIn);
-        checkOutDate = parseExcelDate(checkOut);
+        checkInDate = parseExcelDate(extracted.checkIn);
+        checkOutDate = parseExcelDate(extracted.checkOut);
       } catch (e) {
-        errors.push(`행 ${index + 2}: 날짜 형식 오류 (YYYY-MM-DD 형식 사용)`);
+        errors.push(`행 ${index + 2}: 날짜 형식 오류 (${e.message})`);
         return;
       }
 
       validReservations.push({
         room_id: roomId,
-        guest_name: guestName,
-        guest_email: row['이메일'] || row['email'] || '',
-        guest_phone: row['전화번호'] || row['phone'] || '',
+        guest_name: extracted.guestName,
+        guest_email: extracted.email,
+        guest_phone: extracted.phone,
         check_in: checkInDate,
         check_out: checkOutDate,
-        num_guests: parseInt(row['인원수'] || row['인원'] || row['guests'] || '1'),
-        total_price: parseFloat(String(totalPrice).replace(/[^0-9.]/g, '')),
-        channel: row['채널'] || row['channel'] || 'DIRECT',
-        notes: row['메모'] || row['notes'] || '',
-        status: 'CONFIRMED'
+        num_guests: extracted.numGuests,
+        total_price: extracted.totalPrice,
+        channel: extracted.channel,
+        notes: extracted.notes,
+        status: extracted.status
       });
     } catch (error) {
       errors.push(`행 ${index + 2}: ${error.message}`);
@@ -455,6 +461,106 @@ async function validateAndTransformReservations(data) {
   return validReservations;
 }
 
+function extractReservationData(row) {
+  // Booking.com format detection
+  if (row['예약 번호'] || row['예약자'] || row['투숙객']) {
+    return {
+      roomName: row['객실 유형'] || row['객실타입'] || row['객실명'] || '',
+      guestName: row['투숙객'] || row['예약자'] || '',
+      checkIn: row['체크인'] || '',
+      checkOut: row['체크아웃'] || '',
+      totalPrice: parsePriceString(row['요금'] || row['판매금액'] || '0'),
+      email: '',
+      phone: String(row['전화번호'] || ''),
+      numGuests: parseInt(row['인원'] || row['성인'] || '1'),
+      channel: detectChannel(row),
+      notes: row['메모'] || '',
+      status: mapStatus(row['예약 상태'] || row['예약상태'] || 'CONFIRMED')
+    };
+  }
+
+  // Yanolja format detection
+  if (row['NOL 숙소 예약번호'] || row['입실일시'] || row['퇴실일시']) {
+    return {
+      roomName: row['객실타입'] || row['객실 유형'] || row['객실명'] || '',
+      guestName: row['예약자'] || '',
+      checkIn: row['입실일시'] || row['체크인'] || '',
+      checkOut: row['퇴실일시'] || row['체크아웃'] || '',
+      totalPrice: parsePriceString(row['판매금액'] || row['입금예정가'] || '0'),
+      email: '',
+      phone: row['050안심번호'] || '',
+      numGuests: parseInt(String(row['이용시간'] || '1박').match(/\d+/)?.[0] || '1'),
+      channel: detectChannel(row),
+      notes: row['외부 판매채널 예약번호'] || '',
+      status: mapStatus(row['예약상태'] || 'CONFIRMED')
+    };
+  }
+
+  // Generic format (user's custom format)
+  return {
+    roomName: row['객실명'] || row['객실'] || row['room'] || '',
+    guestName: row['게스트명'] || row['투숙객'] || row['guest_name'] || '',
+    checkIn: row['체크인'] || row['checkin'] || row['check_in'] || '',
+    checkOut: row['체크아웃'] || row['checkout'] || row['check_out'] || '',
+    totalPrice: parsePriceString(row['총금액'] || row['금액'] || row['price'] || '0'),
+    email: row['이메일'] || row['email'] || '',
+    phone: row['전화번호'] || row['phone'] || '',
+    numGuests: parseInt(row['인원수'] || row['인원'] || row['guests'] || '1'),
+    channel: row['채널'] || row['channel'] || 'DIRECT',
+    notes: row['메모'] || row['notes'] || '',
+    status: 'CONFIRMED'
+  };
+}
+
+function parsePriceString(priceStr) {
+  if (typeof priceStr === 'number') return priceStr;
+
+  // Remove all non-numeric characters except decimal point
+  const cleaned = String(priceStr).replace(/[^0-9.]/g, '');
+  return parseFloat(cleaned) || 0;
+}
+
+function detectChannel(row) {
+  const externalBooking = row['외부 판매채널 예약번호'] || '';
+
+  if (externalBooking.includes('아고다') || externalBooking.toLowerCase().includes('agoda')) {
+    return 'BOOKING_COM'; // Agoda uses Booking.com system
+  }
+  if (externalBooking.includes('씨트립') || externalBooking.toLowerCase().includes('ctrip')) {
+    return 'BOOKING_COM';
+  }
+  if (row['NOL 숙소 예약번호'] || row['입실일시']) {
+    return 'YANOLJA';
+  }
+  if (row['예약 번호'] || row['Booker country']) {
+    return 'BOOKING_COM';
+  }
+
+  return 'DIRECT';
+}
+
+function mapStatus(statusStr) {
+  const status = String(statusStr).toLowerCase();
+
+  if (status.includes('ok') || status.includes('완료') || status.includes('확정')) {
+    return 'CONFIRMED';
+  }
+  if (status.includes('취소') || status.includes('cancel')) {
+    return 'CANCELLED';
+  }
+  if (status.includes('체크인') || status.includes('check') && status.includes('in')) {
+    return 'CHECKED_IN';
+  }
+  if (status.includes('체크아웃') || status.includes('check') && status.includes('out')) {
+    return 'CHECKED_OUT';
+  }
+  if (status.includes('노쇼') || status.includes('no') && status.includes('show')) {
+    return 'NO_SHOW';
+  }
+
+  return 'CONFIRMED';
+}
+
 function parseExcelDate(value) {
   // Handle Excel serial date numbers
   if (typeof value === 'number') {
@@ -464,9 +570,17 @@ function parseExcelDate(value) {
 
   // Handle string dates
   if (typeof value === 'string') {
+    // Remove leading/trailing whitespace
+    value = value.trim();
+
     // Try YYYY-MM-DD format
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
+    }
+
+    // Try YYYY-MM-DD HH:MM format (Yanolja format)
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(value)) {
+      return value.split(' ')[0];
     }
 
     // Try parsing as date

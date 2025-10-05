@@ -172,8 +172,13 @@ function renderLedgerTable(reservations, properties, year, month) {
     };
   });
 
-  // Process reservations
+  // Process reservations (exclude cancelled)
   reservations.forEach(res => {
+    // Skip cancelled reservations
+    if (res.status === 'CANCELLED') {
+      return;
+    }
+
     const checkIn = new Date(res.check_in);
     const checkOut = new Date(res.check_out);
     const isDorm = dormRoomIds.has(res.room_id);
@@ -541,8 +546,10 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
   let totalDormOccupied = 0;
   let totalNonDormOccupied = 0;
 
-  // Calculate revenue from reservations
-  reservations.forEach(res => {
+  // Calculate revenue from reservations (exclude cancelled)
+  const activeReservations = reservations.filter(res => res.status !== 'CANCELLED');
+
+  activeReservations.forEach(res => {
     const checkIn = new Date(res.check_in);
     const checkOut = new Date(res.check_out);
     const isDorm = dormRoomIds.has(res.room_id);
@@ -622,7 +629,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
           <div class="border-2 border-blue-200 rounded-lg p-6 bg-blue-50">
             <div class="text-sm text-blue-600 font-semibold mb-2">총 매출</div>
             <div class="text-3xl font-bold text-blue-700">${formatCurrency(totalRevenue)}원</div>
-            <div class="text-xs text-blue-500 mt-2">예약 ${reservations.length}건</div>
+            <div class="text-xs text-blue-500 mt-2">예약 ${activeReservations.length}건 (취소 제외)</div>
           </div>
 
           <div class="border-2 border-red-200 rounded-lg p-6 bg-red-50">

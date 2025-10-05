@@ -67,13 +67,9 @@ async function loadRoomStatus() {
   `;
 
   // Wait for DOM elements to be ready
-  try {
-    await waitForElement('statusPropertyId');
-    await loadPropertyListForStatus();
-    await loadRoomStatusData();
-  } catch (error) {
-    console.error('Failed to initialize room status:', error);
-  }
+  await new Promise(resolve => setTimeout(resolve, 50));
+  await loadPropertyListForStatus();
+  await loadRoomStatusData();
 }
 
 function getToday() {
@@ -131,9 +127,12 @@ async function loadRoomStatusData() {
     }
 
     if (properties.length === 0) {
-      document.getElementById('roomStatusContent').innerHTML = `
-        <div class="text-center py-8 text-gray-500">숙소가 없습니다</div>
-      `;
+      const content = document.getElementById('roomStatusContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="text-center py-8 text-gray-500">숙소가 없습니다</div>
+        `;
+      }
       return;
     }
 
@@ -151,9 +150,12 @@ async function loadRoomStatusData() {
     });
 
     if (rooms.length === 0) {
-      document.getElementById('roomStatusContent').innerHTML = `
-        <div class="text-center py-8 text-gray-500">객실이 없습니다</div>
-      `;
+      const content = document.getElementById('roomStatusContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="text-center py-8 text-gray-500">객실이 없습니다</div>
+        `;
+      }
       return;
     }
 
@@ -170,7 +172,6 @@ async function loadRoomStatusData() {
 function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
   const container = document.getElementById('roomStatusContent');
 
-  // Check if container exists
   if (!container) {
     console.error('roomStatusContent element not found');
     return;

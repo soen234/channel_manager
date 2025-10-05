@@ -120,7 +120,7 @@ async function loadProperties() {
 async function refreshProperties() {
   try {
     const properties = await apiCall('/properties');
-    const container = document.getElementById('propertiesList');
+    const container = await waitForElement('propertiesList');
 
     if (!container) {
       console.error('propertiesList element not found');

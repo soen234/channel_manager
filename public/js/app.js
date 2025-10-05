@@ -89,7 +89,9 @@ async function apiCall(endpoint, options = {}) {
       throw new Error(`API Error: ${response.statusText}`);
     }
 
-    return await response.json();
+    // Handle empty responses (like DELETE)
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   } catch (error) {
     console.error('API call failed:', error);
     showToast('오류가 발생했습니다: ' + error.message, 'error');

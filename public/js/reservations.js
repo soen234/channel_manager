@@ -373,6 +373,13 @@ function readExcelFile(file) {
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+        // Debug: Log first row column names
+        if (jsonData.length > 0) {
+          console.log('엑셀 파일의 컬럼명:', Object.keys(jsonData[0]));
+          console.log('첫 번째 행 데이터:', jsonData[0]);
+        }
+
         resolve(jsonData);
       } catch (error) {
         reject(new Error('엑셀 파일 파싱 실패: ' + error.message));
@@ -401,6 +408,7 @@ async function validateAndTransformReservations(data) {
 
   const validReservations = [];
   const errors = [];
+  const missingRooms = new Set();
 
   data.forEach((row, index) => {
     try {
@@ -419,6 +427,7 @@ async function validateAndTransformReservations(data) {
       }
 
       if (!roomId) {
+        missingRooms.add(extracted.roomName);
         errors.push(`행 ${index + 2}: 객실 '${extracted.roomName}'을 찾을 수 없습니다`);
         return;
       }
@@ -451,6 +460,17 @@ async function validateAndTransformReservations(data) {
     }
   });
 
+  // If there are missing rooms, offer to create them
+  if (missingRooms.size > 0) {
+    const shouldCreate = await showMissingRoomsDialog(Array.from(missingRooms), properties);
+    if (shouldCreate) {
+      // User cancelled or error occurred
+      throw new Error('객실 생성이 필요합니다.');
+    }
+    // If rooms were created, throw error to retry upload
+    throw new Error('객실이 생성되었습니다. 다시 업로드해주세요.');
+  }
+
   if (errors.length > 0) {
     console.warn('Validation errors:', errors);
     if (validReservations.length === 0) {
@@ -463,7 +483,7 @@ async function validateAndTransformReservations(data) {
 
 function extractReservationData(row) {
   // Booking.com format detection
-  if (row['예약 번호'] || row['예약자'] || row['투숙객']) {
+  if (row['예약 번호'] || row['Booker country']) {
     return {
       roomName: row['객실 유형'] || row['객실타입'] || row['객실명'] || '',
       guestName: row['투숙객'] || row['예약자'] || '',
@@ -473,22 +493,26 @@ function extractReservationData(row) {
       email: '',
       phone: String(row['전화번호'] || ''),
       numGuests: parseInt(row['인원'] || row['성인'] || '1'),
-      channel: detectChannel(row),
-      notes: row['메모'] || '',
-      status: mapStatus(row['예약 상태'] || row['예약상태'] || 'CONFIRMED')
+      channel: 'BOOKING_COM',
+      notes: `예약번호: ${row['예약 번호'] || ''}`,
+      status: mapStatus(row['예약 상태'] || 'CONFIRMED')
     };
   }
 
   // Yanolja format detection
   if (row['NOL 숙소 예약번호'] || row['입실일시'] || row['퇴실일시']) {
+    // Parse datetime format "2025-09-21 15:00" to "2025-09-21"
+    const checkInDate = row['입실일시'] ? row['입실일시'].split(' ')[0] : '';
+    const checkOutDate = row['퇴실일시'] ? row['퇴실일시'].split(' ')[0] : '';
+
     return {
       roomName: row['객실타입'] || row['객실 유형'] || row['객실명'] || '',
       guestName: row['예약자'] || '',
-      checkIn: row['입실일시'] || row['체크인'] || '',
-      checkOut: row['퇴실일시'] || row['체크아웃'] || '',
+      checkIn: checkInDate || row['체크인'] || '',
+      checkOut: checkOutDate || row['체크아웃'] || '',
       totalPrice: parsePriceString(row['판매금액'] || row['입금예정가'] || '0'),
       email: '',
-      phone: row['050안심번호'] || '',
+      phone: String(row['050안심번호'] || '').replace(/^82/, '0'),
       numGuests: parseInt(String(row['이용시간'] || '1박').match(/\d+/)?.[0] || '1'),
       channel: detectChannel(row),
       notes: row['외부 판매채널 예약번호'] || '',
@@ -540,21 +564,25 @@ function detectChannel(row) {
 }
 
 function mapStatus(statusStr) {
-  const status = String(statusStr).toLowerCase();
+  const status = String(statusStr).toLowerCase().trim();
 
-  if (status.includes('ok') || status.includes('완료') || status.includes('확정')) {
-    return 'CONFIRMED';
-  }
-  if (status.includes('취소') || status.includes('cancel')) {
+  // Cancelled statuses
+  if (status.includes('취소') || status.includes('cancel') || status.includes('cancelled_by')) {
     return 'CANCELLED';
   }
-  if (status.includes('체크인') || status.includes('check') && status.includes('in')) {
+
+  // Confirmed statuses
+  if (status.includes('ok') || status.includes('완료') || status.includes('확정') || status.includes('예약')) {
+    return 'CONFIRMED';
+  }
+
+  if (status.includes('체크인') || (status.includes('check') && status.includes('in'))) {
     return 'CHECKED_IN';
   }
-  if (status.includes('체크아웃') || status.includes('check') && status.includes('out')) {
+  if (status.includes('체크아웃') || (status.includes('check') && status.includes('out'))) {
     return 'CHECKED_OUT';
   }
-  if (status.includes('노쇼') || status.includes('no') && status.includes('show')) {
+  if (status.includes('노쇼') || (status.includes('no') && status.includes('show'))) {
     return 'NO_SHOW';
   }
 
@@ -591,6 +619,108 @@ function parseExcelDate(value) {
   }
 
   throw new Error('잘못된 날짜 형식');
+}
+
+async function showMissingRoomsDialog(missingRoomNames, properties) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">누락된 객실 발견</h2>
+        <p class="text-gray-600 mb-4">엑셀 파일에서 다음 객실들을 찾을 수 없습니다. 자동으로 생성하시겠습니까?</p>
+
+        <div class="mb-6">
+          <div class="space-y-3">
+            ${missingRoomNames.map(roomName => `
+              <div class="border rounded-lg p-4 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">객실명</label>
+                    <input type="text" value="${roomName}" readonly class="w-full px-3 py-2 border rounded bg-white text-gray-800">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">숙소 선택</label>
+                    <select class="property-select w-full px-3 py-2 border rounded" data-room-name="${roomName}">
+                      ${properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">기본 요금 (원)</label>
+                    <input type="number" class="base-price w-full px-3 py-2 border rounded" value="50000" min="0" step="1000" data-room-name="${roomName}">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">수용인원</label>
+                    <input type="number" class="capacity w-full px-3 py-2 border rounded" value="2" min="1" max="10" data-room-name="${roomName}">
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button id="cancelMissingRooms" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+            취소
+          </button>
+          <button id="createMissingRooms" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            객실 생성 (${missingRoomNames.length}개)
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('cancelMissingRooms').addEventListener('click', () => {
+      document.body.removeChild(modal);
+      resolve(true); // User cancelled
+    });
+
+    document.getElementById('createMissingRooms').addEventListener('click', async () => {
+      try {
+        const createButton = document.getElementById('createMissingRooms');
+        createButton.disabled = true;
+        createButton.textContent = '생성 중...';
+
+        // Collect all room data
+        const roomsToCreate = missingRoomNames.map(roomName => {
+          const propertyId = modal.querySelector(`.property-select[data-room-name="${roomName}"]`).value;
+          const basePrice = parseFloat(modal.querySelector(`.base-price[data-room-name="${roomName}"]`).value);
+          const capacity = parseInt(modal.querySelector(`.capacity[data-room-name="${roomName}"]`).value);
+
+          return {
+            propertyId,
+            roomName,
+            basePrice,
+            capacity
+          };
+        });
+
+        // Create rooms one by one
+        for (const room of roomsToCreate) {
+          await apiCall(`/properties?propertyId=${room.propertyId}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: room.roomName,
+              type: room.roomName,
+              totalRooms: 1,
+              capacity: room.capacity,
+              basePrice: room.basePrice
+            })
+          });
+        }
+
+        showToast(`${roomsToCreate.length}개의 객실이 생성되었습니다.`, 'success');
+        document.body.removeChild(modal);
+        resolve(false); // Rooms created successfully
+      } catch (error) {
+        showToast('객실 생성 중 오류가 발생했습니다: ' + error.message, 'error');
+        document.body.removeChild(modal);
+        resolve(true); // Error occurred
+      }
+    });
+  });
 }
 
 router.register('reservations', loadReservations);

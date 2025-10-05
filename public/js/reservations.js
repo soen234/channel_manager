@@ -117,12 +117,8 @@ async function loadReservations() {
   `;
 
   // Wait for DOM elements to be ready
-  try {
-    await waitForElement('reservationsList');
-    await loadReservationsList();
-  } catch (error) {
-    console.error('Failed to initialize reservations:', error);
-  }
+  await new Promise(resolve => setTimeout(resolve, 50));
+  await loadReservationsList();
 }
 
 async function loadReservationsList() {

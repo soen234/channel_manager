@@ -40,12 +40,8 @@ async function loadInventory() {
   `;
 
   // Wait for DOM elements to be ready
-  try {
-    await waitForElement('selectedProperty');
-    await loadPropertyList();
-  } catch (error) {
-    console.error('Failed to initialize inventory:', error);
-  }
+  await new Promise(resolve => setTimeout(resolve, 50));
+  await loadPropertyList();
 }
 
 function getCurrentMonth() {

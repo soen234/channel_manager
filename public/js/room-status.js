@@ -235,55 +235,91 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
           </tr>
         </thead>
         <tbody>
-          ${rooms.map(room => `
-            <tr class="border-b hover:bg-gray-50">
-              <td class="sticky left-0 z-10 bg-white px-4 py-3 border-r-2 border-gray-300">
-                <div class="font-medium text-gray-900">${room.name}</div>
-                <div class="text-xs text-gray-500">${room.property_name}</div>
-                <div class="text-xs text-gray-400">${room.type}</div>
-              </td>
-              ${dates.map(date => {
-                const reservationsForDate = roomReservationMap[room.id]?.[date] || [];
-                const hasReservation = reservationsForDate.length > 0;
+          ${rooms.map(room => {
+            // Track which dates have been rendered (for colspan)
+            const renderedDates = new Set();
 
-                if (!hasReservation) {
+            return `
+              <tr class="border-b hover:bg-gray-50">
+                <td class="sticky left-0 z-10 bg-white px-4 py-3 border-r-2 border-gray-300">
+                  <div class="font-medium text-gray-900">${room.name}</div>
+                  <div class="text-xs text-gray-500">${room.property_name}</div>
+                  <div class="text-xs text-gray-400">${room.type}</div>
+                </td>
+                ${dates.map(date => {
+                  // Skip if already rendered as part of a multi-day reservation
+                  if (renderedDates.has(date)) {
+                    return '';
+                  }
+
+                  const reservationsForDate = roomReservationMap[room.id]?.[date] || [];
+                  const hasReservation = reservationsForDate.length > 0;
+
+                  if (!hasReservation) {
+                    renderedDates.add(date);
+                    return `
+                      <td class="px-2 py-2 border text-center bg-green-50">
+                        <div class="text-xs text-green-700">예약가능</div>
+                      </td>
+                    `;
+                  }
+
+                  const reservation = reservationsForDate[0];
+                  const isCheckIn = reservation.isCheckIn;
+                  const isCheckOut = reservation.isCheckOut;
+
+                  // Calculate colspan for multi-day reservations
+                  let colspan = 1;
+                  const checkInDate = new Date(reservation.check_in);
+                  const checkOutDate = new Date(reservation.check_out);
+                  const currentDate = new Date(date);
+
+                  // Only calculate colspan if this is the check-in date
+                  if (isCheckIn) {
+                    for (let d = new Date(currentDate); d < checkOutDate; d.setDate(d.getDate() + 1)) {
+                      const dateStr = d.toISOString().split('T')[0];
+                      if (dates.includes(dateStr)) {
+                        renderedDates.add(dateStr);
+                        if (dateStr !== date) {
+                          colspan++;
+                        }
+                      }
+                    }
+                  } else {
+                    renderedDates.add(date);
+                  }
+
+                  let bgColor = 'bg-blue-100';
+                  let borderColor = 'border-blue-300';
+                  let statusText = '예약';
+
+                  if (reservation.status === 'CHECKED_IN') {
+                    bgColor = 'bg-red-100';
+                    borderColor = 'border-red-300';
+                    statusText = '체크인';
+                  } else if (reservation.status === 'CHECKED_OUT') {
+                    bgColor = 'bg-gray-100';
+                    borderColor = 'border-gray-300';
+                    statusText = '체크아웃';
+                  } else if (reservation.status === 'CANCELLED') {
+                    bgColor = 'bg-orange-100';
+                    borderColor = 'border-orange-300';
+                    statusText = '취소';
+                  }
+
                   return `
-                    <td class="px-2 py-2 border text-center bg-green-50">
-                      <div class="text-xs text-green-700">예약가능</div>
+                    <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor}">
+                      <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
+                      <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
+                      <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
+                      ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
+                      ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
                     </td>
                   `;
-                }
-
-                const reservation = reservationsForDate[0];
-                const isCheckIn = reservation.isCheckIn;
-                const isCheckOut = reservation.isCheckOut;
-
-                let bgColor = 'bg-blue-100';
-                let borderColor = 'border-blue-300';
-                let statusText = '예약';
-
-                if (reservation.status === 'CHECKED_IN') {
-                  bgColor = 'bg-red-100';
-                  borderColor = 'border-red-300';
-                  statusText = '체크인';
-                } else if (reservation.status === 'CHECKED_OUT') {
-                  bgColor = 'bg-gray-100';
-                  borderColor = 'border-gray-300';
-                  statusText = '체크아웃';
-                }
-
-                return `
-                  <td class="px-2 py-2 border ${bgColor} ${borderColor}">
-                    <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
-                    <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
-                    <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
-                    ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
-                    ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
-                  </td>
-                `;
-              }).join('')}
-            </tr>
-          `).join('')}
+                }).join('')}
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>
     </div>

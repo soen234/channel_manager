@@ -506,32 +506,267 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
   const container = document.getElementById('ledgerContent');
   if (!container) return;
 
+  // Calculate revenue
+  const roomMap = {};
+  const dormRoomIds = new Set();
+  let totalRoomCount = 0;
+  let dormRoomCount = 0;
+
+  properties.forEach(property => {
+    if (property.rooms) {
+      property.rooms.forEach(room => {
+        roomMap[room.id] = room;
+        const isDorm = room.type.includes('도미토리') || room.type.includes('도미') || room.type.toLowerCase().includes('dorm');
+        if (isDorm) {
+          dormRoomIds.add(room.id);
+          dormRoomCount += (room.total_rooms || 1);
+        }
+        totalRoomCount += (room.total_rooms || 1);
+      });
+    }
+  });
+
+  const nonDormRoomCount = totalRoomCount - dormRoomCount;
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  let totalRevenue = 0;
+  let dormRevenue = 0;
+  let nonDormRevenue = 0;
+  let channelRevenue = {
+    BOOKING_COM: 0,
+    YANOLJA: 0,
+    AIRBNB: 0,
+    DIRECT: 0
+  };
+  let totalDormOccupied = 0;
+  let totalNonDormOccupied = 0;
+
+  // Calculate revenue from reservations
+  reservations.forEach(res => {
+    const checkIn = new Date(res.check_in);
+    const checkOut = new Date(res.check_out);
+    const isDorm = dormRoomIds.has(res.room_id);
+    const revenue = parseFloat(res.total_price) || 0;
+
+    totalRevenue += revenue;
+
+    if (isDorm) {
+      dormRevenue += revenue;
+    } else {
+      nonDormRevenue += revenue;
+    }
+
+    // Channel revenue
+    const channel = res.channel || 'DIRECT';
+    if (channelRevenue[channel] !== undefined) {
+      channelRevenue[channel] += revenue;
+    } else {
+      channelRevenue.DIRECT += revenue;
+    }
+
+    // Count occupied room-nights
+    for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+      if (d.getFullYear() == year && d.getMonth() + 1 == month) {
+        if (isDorm) {
+          totalDormOccupied += 1;
+        } else {
+          totalNonDormOccupied += 1;
+        }
+      }
+    }
+  });
+
+  // Calculate expenses (using default commission rates for now)
+  const commissionRates = {
+    BOOKING_COM: 18,
+    YANOLJA: 16,
+    AIRBNB: 5,
+    DIRECT: 0
+  };
+
+  let totalCommission = 0;
+  Object.keys(channelRevenue).forEach(channel => {
+    const rate = commissionRates[channel] || 0;
+    totalCommission += channelRevenue[channel] * (rate / 100);
+  });
+
+  // VAT (10% on card payments - simplified)
+  const vatRate = 10;
+  const estimatedVAT = totalRevenue * (vatRate / 100);
+
+  // Total expenses (commission + VAT + fixed costs placeholder)
+  const fixedCostsPlaceholder = 0; // Would come from API
+  const totalExpenses = totalCommission + estimatedVAT + fixedCostsPlaceholder;
+
+  // Net profit
+  const netProfit = totalRevenue - totalExpenses;
+
+  // Occupancy rates
+  const dormOccupancyRate = dormRoomCount > 0
+    ? ((totalDormOccupied / (dormRoomCount * daysInMonth)) * 100).toFixed(1)
+    : 0;
+  const nonDormOccupancyRate = nonDormRoomCount > 0
+    ? ((totalNonDormOccupied / (nonDormRoomCount * daysInMonth)) * 100).toFixed(1)
+    : 0;
+  const totalOccupancyRate = totalRoomCount > 0
+    ? (((totalDormOccupied + totalNonDormOccupied) / (totalRoomCount * daysInMonth)) * 100).toFixed(1)
+    : 0;
+
   container.innerHTML = `
-    <div class="bg-white rounded-lg shadow-md p-6">
-      <h3 class="text-xl font-bold mb-4 text-gray-800">${year}년 ${month}월 월간 요약</h3>
-      <p class="text-sm text-gray-600 mb-6">매출, 비용, 순이익 요약 (API 연결 필요)</p>
+    <div class="space-y-6">
+      <!-- 주요 지표 -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-xl font-bold mb-4 text-gray-800">${year}년 ${month}월 월간 요약</h3>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="border rounded-lg p-6 bg-blue-50">
-          <div class="text-sm text-blue-600 font-semibold mb-2">총 매출</div>
-          <div class="text-3xl font-bold text-blue-700">준비중</div>
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="border-2 border-blue-200 rounded-lg p-6 bg-blue-50">
+            <div class="text-sm text-blue-600 font-semibold mb-2">총 매출</div>
+            <div class="text-3xl font-bold text-blue-700">${formatCurrency(totalRevenue)}원</div>
+            <div class="text-xs text-blue-500 mt-2">예약 ${reservations.length}건</div>
+          </div>
 
-        <div class="border rounded-lg p-6 bg-red-50">
-          <div class="text-sm text-red-600 font-semibold mb-2">총 비용</div>
-          <div class="text-3xl font-bold text-red-700">준비중</div>
-        </div>
+          <div class="border-2 border-red-200 rounded-lg p-6 bg-red-50">
+            <div class="text-sm text-red-600 font-semibold mb-2">총 비용</div>
+            <div class="text-3xl font-bold text-red-700">${formatCurrency(totalExpenses)}원</div>
+            <div class="text-xs text-red-500 mt-2">수수료 + VAT</div>
+          </div>
 
-        <div class="border rounded-lg p-6 bg-green-50">
-          <div class="text-sm text-green-600 font-semibold mb-2">순이익</div>
-          <div class="text-3xl font-bold text-green-700">준비중</div>
+          <div class="border-2 border-green-200 rounded-lg p-6 bg-green-50">
+            <div class="text-sm text-green-600 font-semibold mb-2">순이익</div>
+            <div class="text-3xl font-bold text-green-700">${formatCurrency(netProfit)}원</div>
+            <div class="text-xs text-green-500 mt-2">이익률 ${totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%</div>
+          </div>
         </div>
       </div>
 
-      <div class="mt-6">
-        <h4 class="font-semibold mb-3 text-gray-700">월별 추이 차트</h4>
-        <div class="border rounded-lg p-8 bg-gray-50 text-center text-gray-500">
-          차트는 준비 중입니다
+      <!-- 매출 분석 -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h4 class="text-lg font-bold mb-4 text-gray-800">매출 분석</h4>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- 객실 유형별 매출 -->
+          <div>
+            <h5 class="font-semibold mb-3 text-gray-700">객실 유형별 매출</h5>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center p-3 bg-purple-50 rounded">
+                <span class="text-sm font-medium">도미토리</span>
+                <span class="text-sm font-bold text-purple-700">${formatCurrency(dormRevenue)}원</span>
+              </div>
+              <div class="flex justify-between items-center p-3 bg-green-50 rounded">
+                <span class="text-sm font-medium">일반 객실</span>
+                <span class="text-sm font-bold text-green-700">${formatCurrency(nonDormRevenue)}원</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 채널별 매출 -->
+          <div>
+            <h5 class="font-semibold mb-3 text-gray-700">채널별 매출</h5>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center p-3 bg-blue-50 rounded">
+                <span class="text-sm font-medium">부킹닷컴</span>
+                <span class="text-sm font-bold text-blue-700">${formatCurrency(channelRevenue.BOOKING_COM)}원</span>
+              </div>
+              <div class="flex justify-between items-center p-3 bg-green-50 rounded">
+                <span class="text-sm font-medium">야놀자</span>
+                <span class="text-sm font-bold text-green-700">${formatCurrency(channelRevenue.YANOLJA)}원</span>
+              </div>
+              <div class="flex justify-between items-center p-3 bg-red-50 rounded">
+                <span class="text-sm font-medium">에어비앤비</span>
+                <span class="text-sm font-bold text-red-700">${formatCurrency(channelRevenue.AIRBNB)}원</span>
+              </div>
+              <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                <span class="text-sm font-medium">직접예약</span>
+                <span class="text-sm font-bold text-gray-700">${formatCurrency(channelRevenue.DIRECT)}원</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 비용 분석 -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h4 class="text-lg font-bold mb-4 text-gray-800">비용 분석</h4>
+
+        <div class="space-y-3">
+          <div class="flex justify-between items-center p-3 bg-orange-50 rounded">
+            <div>
+              <span class="text-sm font-medium">채널 수수료</span>
+              <div class="text-xs text-gray-500 mt-1">
+                부킹 ${commissionRates.BOOKING_COM}% · 야놀자 ${commissionRates.YANOLJA}% · 에어비앤비 ${commissionRates.AIRBNB}%
+              </div>
+            </div>
+            <span class="text-sm font-bold text-orange-700">${formatCurrency(totalCommission)}원</span>
+          </div>
+
+          <div class="flex justify-between items-center p-3 bg-yellow-50 rounded">
+            <div>
+              <span class="text-sm font-medium">부가가치세 (VAT)</span>
+              <div class="text-xs text-gray-500 mt-1">매출의 ${vatRate}% (예상)</div>
+            </div>
+            <span class="text-sm font-bold text-yellow-700">${formatCurrency(estimatedVAT)}원</span>
+          </div>
+
+          <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+            <div>
+              <span class="text-sm font-medium">고정 비용</span>
+              <div class="text-xs text-gray-500 mt-1">월세, 인건비, 공과금 등</div>
+            </div>
+            <span class="text-sm font-bold text-gray-700">${formatCurrency(fixedCostsPlaceholder)}원</span>
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div class="text-xs text-blue-600 mb-1">💡 안내</div>
+          <div class="text-sm text-blue-700">
+            고정 비용은 "비용관리" 탭에서 입력하실 수 있습니다. 입력하시면 자동으로 집계됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- 예약율 현황 -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h4 class="text-lg font-bold mb-4 text-gray-800">예약율 현황</h4>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="border border-purple-200 rounded-lg p-4 bg-purple-50">
+            <div class="text-sm text-purple-600 font-semibold mb-1">도미토리 예약율</div>
+            <div class="text-3xl font-bold text-purple-700">${dormOccupancyRate}%</div>
+            <div class="text-xs text-purple-500 mt-2">
+              ${totalDormOccupied} / ${dormRoomCount * daysInMonth} 룸나이트
+            </div>
+            <div class="mt-2">
+              <div class="bg-purple-200 rounded-full h-2">
+                <div class="bg-purple-600 rounded-full h-2" style="width: ${dormOccupancyRate}%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border border-green-200 rounded-lg p-4 bg-green-50">
+            <div class="text-sm text-green-600 font-semibold mb-1">일반객실 예약율</div>
+            <div class="text-3xl font-bold text-green-700">${nonDormOccupancyRate}%</div>
+            <div class="text-xs text-green-500 mt-2">
+              ${totalNonDormOccupied} / ${nonDormRoomCount * daysInMonth} 룸나이트
+            </div>
+            <div class="mt-2">
+              <div class="bg-green-200 rounded-full h-2">
+                <div class="bg-green-600 rounded-full h-2" style="width: ${nonDormOccupancyRate}%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div class="text-sm text-blue-600 font-semibold mb-1">전체 예약율</div>
+            <div class="text-3xl font-bold text-blue-700">${totalOccupancyRate}%</div>
+            <div class="text-xs text-blue-500 mt-2">
+              ${totalDormOccupied + totalNonDormOccupied} / ${totalRoomCount * daysInMonth} 룸나이트
+            </div>
+            <div class="mt-2">
+              <div class="bg-blue-200 rounded-full h-2">
+                <div class="bg-blue-600 rounded-full h-2" style="width: ${totalOccupancyRate}%"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

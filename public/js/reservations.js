@@ -57,10 +57,15 @@ async function loadReservations() {
 
     <!-- 예약 목록 -->
     <div class="bg-white rounded-lg shadow-md p-6">
-      <h2 class="text-xl font-bold mb-4">예약 목록</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">예약 목록</h2>
+        <div id="reservationsCount" class="text-sm text-gray-500"></div>
+      </div>
       <div id="reservationsList" class="overflow-x-auto">
         <div class="text-center py-8 text-gray-500">로딩중...</div>
       </div>
+      <!-- 페이지네이션 -->
+      <div id="pagination" class="mt-6 flex justify-center items-center space-x-2"></div>
     </div>
 
     <!-- 엑셀 업로드 모달 -->
@@ -121,6 +126,11 @@ async function loadReservations() {
   await loadReservationsList();
 }
 
+// Pagination state
+let currentPage = 1;
+const itemsPerPage = 50;
+let allReservations = [];
+
 async function loadReservationsList() {
   const channel = document.getElementById('filterChannel')?.value || '';
   const status = document.getElementById('filterStatus')?.value || '';
@@ -134,22 +144,41 @@ async function loadReservationsList() {
   if (endDate) url += `endDate=${endDate}&`;
 
   try {
-    const reservations = await apiCall(url);
-    renderReservationsList(reservations);
+    allReservations = await apiCall(url);
+    currentPage = 1;
+    renderReservationsList();
   } catch (error) {
     console.error('Failed to load reservations:', error);
   }
 }
 
-function renderReservationsList(reservations) {
+function goToPage(page) {
+  currentPage = page;
+  renderReservationsList();
+}
+
+function renderReservationsList() {
   const container = document.getElementById('reservationsList');
+  const countEl = document.getElementById('reservationsCount');
+  const paginationEl = document.getElementById('pagination');
 
   if (!container) {
     console.error('reservationsList element not found');
     return;
   }
 
-  if (reservations.length === 0) {
+  const totalItems = allReservations.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const pageReservations = allReservations.slice(startIndex, endIndex);
+
+  // Update count display
+  if (countEl) {
+    countEl.textContent = `총 ${totalItems}건 (${startIndex + 1}-${endIndex}건 표시)`;
+  }
+
+  if (totalItems === 0) {
     container.innerHTML = `
       <div class="text-center py-12">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,6 +188,9 @@ function renderReservationsList(reservations) {
         <p class="mt-1 text-sm text-gray-500">필터 조건을 변경하거나 예약 동기화를 실행하세요.</p>
       </div>
     `;
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+    }
     return;
   }
 
@@ -178,7 +210,7 @@ function renderReservationsList(reservations) {
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        ${reservations.map(res => {
+        ${pageReservations.map(res => {
           const checkIn = new Date(res.check_in);
           const checkOut = new Date(res.check_out);
           const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
@@ -236,6 +268,87 @@ function renderReservationsList(reservations) {
       </tbody>
     </table>
   `;
+
+  // Render pagination
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  const paginationEl = document.getElementById('pagination');
+
+  if (!paginationEl || totalPages <= 1) {
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+    }
+    return;
+  }
+
+  const maxVisiblePages = 7;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  // Adjust start if we're near the end
+  if (endPage - startPage < maxVisiblePages - 1) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const pages = [];
+
+  // Previous button
+  pages.push(`
+    <button onclick="goToPage(${currentPage - 1})"
+      ${currentPage === 1 ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+      ‹
+    </button>
+  `);
+
+  // First page + ellipsis
+  if (startPage > 1) {
+    pages.push(`
+      <button onclick="goToPage(1)"
+        class="px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50">
+        1
+      </button>
+    `);
+    if (startPage > 2) {
+      pages.push(`<span class="px-2 py-2 text-gray-500">...</span>`);
+    }
+  }
+
+  // Page numbers
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(`
+      <button onclick="goToPage(${i})"
+        class="px-4 py-2 rounded-lg border ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+        ${i}
+      </button>
+    `);
+  }
+
+  // Ellipsis + last page
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      pages.push(`<span class="px-2 py-2 text-gray-500">...</span>`);
+    }
+    pages.push(`
+      <button onclick="goToPage(${totalPages})"
+        class="px-4 py-2 rounded-lg border bg-white text-gray-700 hover:bg-gray-50">
+        ${totalPages}
+      </button>
+    `);
+  }
+
+  // Next button
+  pages.push(`
+    <button onclick="goToPage(${currentPage + 1})"
+      ${currentPage === totalPages ? 'disabled' : ''}
+      class="px-3 py-2 rounded-lg border ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+      ›
+    </button>
+  `);
+
+  paginationEl.innerHTML = pages.join('');
 }
 
 function getStatusColorForSelect(status) {

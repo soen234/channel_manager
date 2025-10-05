@@ -7,32 +7,70 @@ async function loadLedger() {
   container.innerHTML = `
     <div class="mb-6">
       <h1 class="text-3xl font-bold text-gray-800">장부</h1>
-      <p class="text-gray-600">월별 매출 및 예약율 현황</p>
+      <p class="text-gray-600">월별 매출, 비용 및 예약율 현황</p>
     </div>
 
-    <!-- 월 선택 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <div class="flex items-center gap-4">
-        <label class="text-gray-700 font-semibold">조회 월:</label>
-        <input type="month" id="ledgerMonth" value="${currentMonth}"
-          onchange="loadLedgerData()"
-          class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button onclick="exportLedger()" class="ml-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-          엑셀 내보내기
-        </button>
+    <!-- 탭 메뉴 -->
+    <div class="bg-white rounded-lg shadow-md mb-6">
+      <div class="border-b">
+        <nav class="flex">
+          <button onclick="switchLedgerTab('revenue')" id="tab-revenue"
+            class="ledger-tab px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600">
+            매출현황
+          </button>
+          <button onclick="switchLedgerTab('expenses')" id="tab-expenses"
+            class="ledger-tab px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+            비용관리
+          </button>
+          <button onclick="switchLedgerTab('summary')" id="tab-summary"
+            class="ledger-tab px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+            월간요약
+          </button>
+        </nav>
+      </div>
+
+      <div class="p-6">
+        <div class="flex items-center gap-4 mb-4">
+          <label class="text-gray-700 font-semibold">조회 월:</label>
+          <input type="month" id="ledgerMonth" value="${currentMonth}"
+            onchange="loadLedgerData()"
+            class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <button onclick="exportLedger()" class="ml-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            엑셀 내보내기
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- 장부 테이블 -->
-    <div id="ledgerContent" class="bg-white rounded-lg shadow-md p-6 overflow-x-auto">
+    <!-- 탭 콘텐츠 -->
+    <div id="ledgerContent">
       <div class="text-center py-8 text-gray-500">
-        조회 월을 선택하세요
+        로딩 중...
       </div>
     </div>
   `;
 
   await new Promise(resolve => setTimeout(resolve, 50));
+  window.currentLedgerTab = 'revenue';
   await loadLedgerData();
+}
+
+function switchLedgerTab(tab) {
+  window.currentLedgerTab = tab;
+
+  // Update tab styling
+  document.querySelectorAll('.ledger-tab').forEach(btn => {
+    btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+    btn.classList.add('text-gray-600');
+  });
+
+  const activeTab = document.getElementById(`tab-${tab}`);
+  if (activeTab) {
+    activeTab.classList.remove('text-gray-600');
+    activeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+  }
+
+  loadLedgerData();
 }
 
 function getCurrentYearMonth() {
@@ -52,14 +90,25 @@ async function loadLedgerData() {
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
 
+  const tab = window.currentLedgerTab || 'revenue';
+
   try {
-    // Fetch all reservations for the month
-    const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
+    if (tab === 'revenue') {
+      // Fetch all reservations for the month
+      const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
 
-    // Fetch properties and rooms to get room types
-    const properties = await apiCall('/properties');
+      // Fetch properties and rooms to get room types
+      const properties = await apiCall('/properties');
 
-    renderLedgerTable(reservations, properties, year, month);
+      renderLedgerTable(reservations, properties, year, month);
+    } else if (tab === 'expenses') {
+      renderExpensesForm(yearMonth);
+    } else if (tab === 'summary') {
+      // Fetch both revenue and expenses
+      const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
+      const properties = await apiCall('/properties');
+      renderMonthlySummary(reservations, properties, year, month, yearMonth);
+    }
   } catch (error) {
     console.error('Failed to load ledger data:', error);
     showToast('장부 데이터 로딩 실패', 'error');
@@ -292,6 +341,201 @@ function renderLedgerTable(reservations, properties, year, month) {
 function formatCurrency(amount) {
   if (!amount || amount === 0) return '-';
   return Math.round(amount).toLocaleString();
+}
+
+function renderExpensesForm(yearMonth) {
+  const container = document.getElementById('ledgerContent');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h3 class="text-xl font-bold mb-4 text-gray-800">월별 고정 비용</h3>
+      <p class="text-sm text-gray-600 mb-6">아래 항목들을 입력하면 자동으로 집계됩니다.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">월세</label>
+          <input type="number" id="exp-rent" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">인터넷 비용</label>
+          <input type="number" id="exp-internet" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">화재보험료</label>
+          <input type="number" id="exp-fire-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">정수기</label>
+          <input type="number" id="exp-water-purifier" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">세탁비</label>
+          <input type="number" id="exp-laundry" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">방역비</label>
+          <input type="number" id="exp-pest-control" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">세무사 대리 비용</label>
+          <input type="number" id="exp-tax-service" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">4대 보험료</label>
+          <input type="number" id="exp-social-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">전기요금</label>
+          <input type="number" id="exp-electricity" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">가스요금</label>
+          <input type="number" id="exp-gas" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">수도요금</label>
+          <input type="number" id="exp-water" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">채널매니저 비용</label>
+          <input type="number" id="exp-channel-manager" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button onclick="saveExpenses('${yearMonth}')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          저장
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+      <h3 class="text-xl font-bold mb-4 text-gray-800">수수료 설정</h3>
+      <p class="text-sm text-gray-600 mb-6">채널별 수수료율 및 기타 수수료를 설정합니다.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">네이버 수수료 (%)</label>
+          <input type="number" id="comm-naver" placeholder="3" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">부킹닷컴 수수료 (%)</label>
+          <input type="number" id="comm-booking" placeholder="18" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">야놀자 수수료 (%)</label>
+          <input type="number" id="comm-yanolja" placeholder="16" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">에어비앤비 수수료 (%)</label>
+          <input type="number" id="comm-airbnb" placeholder="5" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">카드 수수료 (%)</label>
+          <input type="number" id="comm-card" placeholder="2.5" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">페이팔 수수료 (%)</label>
+          <input type="number" id="comm-paypal" placeholder="4.4" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">토스 수수료 (%)</label>
+          <input type="number" id="comm-toss" placeholder="2.8" step="0.1" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button onclick="saveCommissionRates()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          수수료율 저장
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Load existing data if any
+  loadExistingExpenses(yearMonth);
+}
+
+async function loadExistingExpenses(yearMonth) {
+  try {
+    // This would load from API when implemented
+    showToast('비용 데이터는 준비 중입니다.', 'error');
+  } catch (error) {
+    console.error('Failed to load expenses:', error);
+  }
+}
+
+function saveExpenses(yearMonth) {
+  const expenses = {
+    year_month: yearMonth,
+    rent: parseFloat(document.getElementById('exp-rent').value) || 0,
+    internet: parseFloat(document.getElementById('exp-internet').value) || 0,
+    fire_insurance: parseFloat(document.getElementById('exp-fire-insurance').value) || 0,
+    water_purifier: parseFloat(document.getElementById('exp-water-purifier').value) || 0,
+    laundry: parseFloat(document.getElementById('exp-laundry').value) || 0,
+    pest_control: parseFloat(document.getElementById('exp-pest-control').value) || 0,
+    tax_service: parseFloat(document.getElementById('exp-tax-service').value) || 0,
+    social_insurance: parseFloat(document.getElementById('exp-social-insurance').value) || 0,
+    electricity: parseFloat(document.getElementById('exp-electricity').value) || 0,
+    gas: parseFloat(document.getElementById('exp-gas').value) || 0,
+    water: parseFloat(document.getElementById('exp-water').value) || 0,
+    channel_manager: parseFloat(document.getElementById('exp-channel-manager').value) || 0
+  };
+
+  console.log('Saving expenses:', expenses);
+  showToast('비용 저장 기능은 API 연결 후 활성화됩니다.', 'error');
+}
+
+function saveCommissionRates() {
+  const rates = {
+    NAVER: parseFloat(document.getElementById('comm-naver').value) || 3,
+    BOOKING_COM: parseFloat(document.getElementById('comm-booking').value) || 18,
+    YANOLJA: parseFloat(document.getElementById('comm-yanolja').value) || 16,
+    AIRBNB: parseFloat(document.getElementById('comm-airbnb').value) || 5,
+    card: parseFloat(document.getElementById('comm-card').value) || 2.5,
+    paypal: parseFloat(document.getElementById('comm-paypal').value) || 4.4,
+    toss: parseFloat(document.getElementById('comm-toss').value) || 2.8
+  };
+
+  console.log('Saving commission rates:', rates);
+  showToast('수수료율 저장 기능은 API 연결 후 활성화됩니다.', 'error');
+}
+
+function renderMonthlySummary(reservations, properties, year, month, yearMonth) {
+  const container = document.getElementById('ledgerContent');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h3 class="text-xl font-bold mb-4 text-gray-800">${year}년 ${month}월 월간 요약</h3>
+      <p class="text-sm text-gray-600 mb-6">매출, 비용, 순이익 요약 (API 연결 필요)</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="border rounded-lg p-6 bg-blue-50">
+          <div class="text-sm text-blue-600 font-semibold mb-2">총 매출</div>
+          <div class="text-3xl font-bold text-blue-700">준비중</div>
+        </div>
+
+        <div class="border rounded-lg p-6 bg-red-50">
+          <div class="text-sm text-red-600 font-semibold mb-2">총 비용</div>
+          <div class="text-3xl font-bold text-red-700">준비중</div>
+        </div>
+
+        <div class="border rounded-lg p-6 bg-green-50">
+          <div class="text-sm text-green-600 font-semibold mb-2">순이익</div>
+          <div class="text-3xl font-bold text-green-700">준비중</div>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <h4 class="font-semibold mb-3 text-gray-700">월별 추이 차트</h4>
+        <div class="border rounded-lg p-8 bg-gray-50 text-center text-gray-500">
+          차트는 준비 중입니다
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function exportLedger() {

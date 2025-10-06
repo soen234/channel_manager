@@ -464,16 +464,30 @@ function renderExpensesForm(yearMonth) {
 
 async function loadExistingExpenses(yearMonth) {
   try {
-    // This would load from API when implemented
-    showToast('비용 데이터는 준비 중입니다.', 'error');
+    const fixedExpenses = await apiCall(`/expenses/fixed?year_month=${yearMonth}`);
+
+    if (fixedExpenses) {
+      // Populate form with existing data
+      document.getElementById('exp-rent').value = fixedExpenses.rent || 0;
+      document.getElementById('exp-internet').value = fixedExpenses.internet || 0;
+      document.getElementById('exp-fire-insurance').value = fixedExpenses.fire_insurance || 0;
+      document.getElementById('exp-water-purifier').value = fixedExpenses.water_purifier || 0;
+      document.getElementById('exp-laundry').value = fixedExpenses.laundry || 0;
+      document.getElementById('exp-pest-control').value = fixedExpenses.pest_control || 0;
+      document.getElementById('exp-tax-service').value = fixedExpenses.tax_service || 0;
+      document.getElementById('exp-social-insurance').value = fixedExpenses.social_insurance || 0;
+      document.getElementById('exp-electricity').value = fixedExpenses.electricity || 0;
+      document.getElementById('exp-gas').value = fixedExpenses.gas || 0;
+      document.getElementById('exp-water').value = fixedExpenses.water || 0;
+      document.getElementById('exp-channel-manager').value = fixedExpenses.channel_manager || 0;
+    }
   } catch (error) {
     console.error('Failed to load expenses:', error);
   }
 }
 
-function saveExpenses(yearMonth) {
+async function saveExpenses(yearMonth) {
   const expenses = {
-    year_month: yearMonth,
     rent: parseFloat(document.getElementById('exp-rent').value) || 0,
     internet: parseFloat(document.getElementById('exp-internet').value) || 0,
     fire_insurance: parseFloat(document.getElementById('exp-fire-insurance').value) || 0,
@@ -488,23 +502,71 @@ function saveExpenses(yearMonth) {
     channel_manager: parseFloat(document.getElementById('exp-channel-manager').value) || 0
   };
 
-  console.log('Saving expenses:', expenses);
-  showToast('비용 저장 기능은 API 연결 후 활성화됩니다.', 'error');
+  try {
+    await apiCall('/expenses/fixed', {
+      method: 'POST',
+      body: JSON.stringify({
+        year_month: yearMonth,
+        expenses
+      })
+    });
+
+    showToast('고정비용이 저장되었습니다.', 'success');
+  } catch (error) {
+    console.error('Failed to save expenses:', error);
+    showToast('비용 저장 실패', 'error');
+  }
 }
 
-function saveCommissionRates() {
-  const rates = {
+async function saveCommissionRates() {
+  const channelRates = {
     NAVER: parseFloat(document.getElementById('comm-naver').value) || 3,
     BOOKING_COM: parseFloat(document.getElementById('comm-booking').value) || 18,
     YANOLJA: parseFloat(document.getElementById('comm-yanolja').value) || 16,
-    AIRBNB: parseFloat(document.getElementById('comm-airbnb').value) || 5,
-    card: parseFloat(document.getElementById('comm-card').value) || 2.5,
-    paypal: parseFloat(document.getElementById('comm-paypal').value) || 4.4,
-    toss: parseFloat(document.getElementById('comm-toss').value) || 2.8
+    AIRBNB: parseFloat(document.getElementById('comm-airbnb').value) || 5
   };
 
-  console.log('Saving commission rates:', rates);
-  showToast('수수료율 저장 기능은 API 연결 후 활성화됩니다.', 'error');
+  const cardRate = parseFloat(document.getElementById('comm-card').value) || 2.5;
+  const paypalRate = parseFloat(document.getElementById('comm-paypal').value) || 4.4;
+  const tossRate = parseFloat(document.getElementById('comm-toss').value) || 2.8;
+
+  try {
+    await Promise.all([
+      apiCall('/expenses/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          setting_key: 'channel_commission_rates',
+          setting_value: channelRates
+        })
+      }),
+      apiCall('/expenses/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          setting_key: 'card_commission_rate',
+          setting_value: { rate: cardRate }
+        })
+      }),
+      apiCall('/expenses/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          setting_key: 'paypal_commission_rate',
+          setting_value: { rate: paypalRate }
+        })
+      }),
+      apiCall('/expenses/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          setting_key: 'toss_commission_rate',
+          setting_value: { rate: tossRate }
+        })
+      })
+    ]);
+
+    showToast('수수료율이 저장되었습니다.', 'success');
+  } catch (error) {
+    console.error('Failed to save commission rates:', error);
+    showToast('수수료율 저장 실패', 'error');
+  }
 }
 
 function renderMonthlySummary(reservations, properties, year, month, yearMonth) {

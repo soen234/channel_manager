@@ -36,6 +36,23 @@ async function loadPendingUsers() {
     renderPendingUsers(users);
   } catch (error) {
     console.error('Failed to load pending users:', error);
+
+    const container = document.getElementById('pendingUsersList');
+    if (container) {
+      if (error.message.includes('Forbidden') || error.message.includes('403')) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-red-500">
+            관리자 권한이 필요합니다
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            데이터 로딩 실패
+          </div>
+        `;
+      }
+    }
   }
 }
 
@@ -45,6 +62,23 @@ async function loadStaffList() {
     renderStaffList(staff);
   } catch (error) {
     console.error('Failed to load staff list:', error);
+
+    const container = document.getElementById('staffList');
+    if (container) {
+      if (error.message.includes('Forbidden') || error.message.includes('403')) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-red-500">
+            관리자 권한이 필요합니다
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            데이터 로딩 실패
+          </div>
+        `;
+      }
+    }
   }
 }
 

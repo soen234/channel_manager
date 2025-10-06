@@ -192,9 +192,17 @@
     } else {
       // 사용자 정보 표시
       const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userRole = localStorage.getItem('user_role');
+
       if (user.email) {
         document.getElementById('userEmail').textContent = user.email;
         document.getElementById('userInitial').textContent = user.email.charAt(0).toUpperCase();
+      }
+
+      // 스태프 관리 메뉴는 관리자만 표시
+      const staffManagementLink = document.getElementById('staffManagementLink');
+      if (staffManagementLink && userRole !== 'ADMIN') {
+        staffManagementLink.style.display = 'none';
       }
 
       // 라우터 초기화

@@ -118,6 +118,13 @@
           </svg>
           <span class="sidebar-text">스태프 관리</span>
         </a>
+
+        <a href="#" data-route="admin-cleaning" class="nav-link flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100" title="청소 현황" id="cleaningStatusLink">
+          <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="sidebar-text">청소 현황</span>
+        </a>
       </nav>
 
       <div class="absolute bottom-0 w-full p-6 border-t user-section">
@@ -184,6 +191,7 @@
   <script src="/js/ledger.js"></script>
   <script src="/js/channels.js"></script>
   <script src="/js/admin-staff.js"></script>
+  <script src="/js/admin-cleaning.js"></script>
 
   <script>
     // 인증 체크 및 초기화
@@ -203,6 +211,12 @@
       const staffManagementLink = document.getElementById('staffManagementLink');
       if (staffManagementLink && userRole !== 'ADMIN') {
         staffManagementLink.style.display = 'none';
+      }
+
+      // 청소 현황 메뉴는 관리자만 표시
+      const cleaningStatusLink = document.getElementById('cleaningStatusLink');
+      if (cleaningStatusLink && userRole !== 'ADMIN') {
+        cleaningStatusLink.style.display = 'none';
       }
 
       // 라우터 초기화

@@ -397,11 +397,17 @@ async function markCheckinComplete(reservationId, isComplete) {
 async function markCleaningComplete(type, reservationId, isComplete) {
   if (!isComplete) return;
 
-  showToast('청소 완료 처리 중...');
-  setTimeout(() => {
+  try {
+    await apiCall(`/staff/mark-cleaning-complete?reservation_id=${reservationId}`, {
+      method: 'PATCH'
+    });
+
     showToast('청소 완료 처리되었습니다');
-    refreshAll();
-  }, 500);
+    await refreshAll();
+  } catch (error) {
+    console.error('Failed to mark cleaning complete:', error);
+    showToast('청소 완료 처리 실패');
+  }
 }
 
 async function markRequestComplete(requestId, isComplete) {

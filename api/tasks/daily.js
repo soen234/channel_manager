@@ -1,7 +1,7 @@
-const { requireAuth, supabase } = require('../_middleware');
+const { requireApproved, supabase } = require('../_middleware');
 
 module.exports = async (req, res) => {
-  const authResult = await requireAuth(req, res);
+  const authResult = await requireApproved(req, res);
   if (authResult.error) {
     return res.status(authResult.status).json({ error: authResult.error });
   }

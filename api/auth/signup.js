@@ -26,9 +26,27 @@ module.exports = async (req, res) => {
 
     console.log('Signup successful:', data.user?.id);
 
+    // Create user role entry (PENDING status)
+    if (data.user) {
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: data.user.id,
+          email: data.user.email,
+          role: 'PENDING',
+          status: 'PENDING'
+        });
+
+      if (roleError) {
+        console.error('Failed to create user role:', roleError);
+        // Don't fail signup if role creation fails - admin can fix manually
+      }
+    }
+
     res.json({
       user: data.user,
       session: data.session,
+      pending_approval: true
     });
   } catch (error) {
     console.error('Signup handler error:', error);

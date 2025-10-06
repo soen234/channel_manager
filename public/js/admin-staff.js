@@ -162,7 +162,7 @@ async function changeTaskDate(direction) {
 
 async function loadTasksByDate(date) {
   try {
-    const tasks = await apiCall(\`/tasks/daily?date=\${date}\`);
+    const tasks = await apiCall(`/tasks/daily?date=${date}`);
 
     // Update date display
     const dateDisplay = document.getElementById('taskDateDisplay');
@@ -185,14 +185,14 @@ async function loadTasksByDate(date) {
         ? '할일 테이블이 생성되지 않았습니다. Supabase에서 sql/create_tasks_table.sql을 실행하세요.'
         : '할일 로딩 실패: ' + (error.message || '알 수 없는 오류');
 
-      container.innerHTML = \`
+      container.innerHTML = `
         <div class="text-center py-8">
-          <p class="text-red-500 mb-2">\${errorMessage}</p>
+          <p class="text-red-500 mb-2">${errorMessage}</p>
           <button onclick="switchStaffTab('permissions')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             권한 관리 탭으로 이동
           </button>
         </div>
-      \`;
+      `;
     }
   }
 }
@@ -202,58 +202,58 @@ function renderTasksList(tasks, date) {
   if (!container) return;
 
   if (!tasks || tasks.length === 0) {
-    container.innerHTML = \`
+    container.innerHTML = `
       <div class="text-center py-8 text-gray-500">
         <p>이 날짜의 할일이 없습니다.</p>
         <p class="text-sm mt-2">+ 할일 추가 버튼을 눌러 새 할일을 추가하세요.</p>
       </div>
-    \`;
+    `;
     return;
   }
 
-  container.innerHTML = \`
+  container.innerHTML = `
     <div class="space-y-3">
-      \${tasks.map(task => \`
-        <div class="border rounded-lg p-4 \${task.completed ? 'bg-gray-50' : 'bg-white'} hover:shadow transition">
+      ${tasks.map(task => `
+        <div class="border rounded-lg p-4 ${task.completed ? 'bg-gray-50' : 'bg-white'} hover:shadow transition">
           <div class="flex items-start gap-3">
             <input type="checkbox"
-              \${task.completed ? 'checked' : ''}
-              onchange="toggleTaskComplete('\${task.id}', this.checked)"
+              ${task.completed ? 'checked' : ''}
+              onchange="toggleTaskComplete('${task.id}', this.checked)"
               class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-              \${task.completed_by ? 'disabled' : ''}
+              ${task.completed_by ? 'disabled' : ''}
             >
             <div class="flex-1">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
-                  <h3 class="font-semibold \${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}">
-                    \${task.title}
+                  <h3 class="font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}">
+                    ${task.title}
                   </h3>
-                  \${task.description ? \`
-                    <p class="text-sm text-gray-600 mt-1 \${task.completed ? 'line-through' : ''}">
-                      \${task.description}
+                  ${task.description ? `
+                    <p class="text-sm text-gray-600 mt-1 ${task.completed ? 'line-through' : ''}">
+                      ${task.description}
                     </p>
-                  \` : ''}
+                  ` : ''}
                   <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                    \${task.assigned_to_name ? \`
+                    ${task.assigned_to_name ? `
                       <span class="flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                         </svg>
-                        담당: \${task.assigned_to_name}
+                        담당: ${task.assigned_to_name}
                       </span>
-                    \` : ''}
-                    \${task.completed && task.completed_at ? \`
+                    ` : ''}
+                    ${task.completed && task.completed_at ? `
                       <span class="flex items-center gap-1 text-green-600">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
-                        완료: \${new Date(task.completed_at).toLocaleString('ko-KR')}
-                        \${task.completed_by_name ? \`by \${task.completed_by_name}\` : ''}
+                        완료: ${new Date(task.completed_at).toLocaleString('ko-KR')}
+                        ${task.completed_by_name ? `by ${task.completed_by_name}` : ''}
                       </span>
-                    \` : ''}
+                    ` : ''}
                   </div>
                 </div>
-                <button onclick="deleteTask('\${task.id}')"
+                <button onclick="deleteTask('${task.id}')"
                   class="ml-2 text-red-500 hover:text-red-700"
                   title="삭제">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,14 +264,14 @@ function renderTasksList(tasks, date) {
             </div>
           </div>
         </div>
-      \`).join('')}
+      `).join('')}
     </div>
-  \`;
+  `;
 }
 
 function showAddTaskModal() {
   const selectedDate = window.currentTaskDate || new Date().toISOString().split('T')[0];
-  const modalHTML = \`
+  const modalHTML = `
     <div id="addTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
         <h2 class="text-2xl font-bold mb-4">할일 추가</h2>
@@ -316,7 +316,7 @@ function showAddTaskModal() {
         </form>
       </div>
     </div>
-  \`;
+  `;
 
   const existing = document.getElementById('addTaskModal');
   if (existing) existing.remove();
@@ -356,7 +356,7 @@ async function saveTask(event) {
 
 async function toggleTaskComplete(taskId, completed) {
   try {
-    await apiCall(\`/tasks/daily?id=\${taskId}\`, {
+    await apiCall(`/tasks/daily?id=${taskId}`, {
       method: 'PATCH',
       body: JSON.stringify({ completed })
     });
@@ -376,7 +376,7 @@ async function deleteTask(taskId) {
   }
 
   try {
-    await apiCall(\`/tasks/daily?id=\${taskId}\`, {
+    await apiCall(`/tasks/daily?id=${taskId}`, {
       method: 'DELETE'
     });
 

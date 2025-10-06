@@ -780,8 +780,270 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
   `;
 }
 
-function exportLedger() {
-  showToast('엑셀 내보내기 기능은 준비 중입니다.', 'error');
+async function exportLedger() {
+  const monthInput = document.getElementById('ledgerMonth');
+  if (!monthInput) return;
+
+  const yearMonth = monthInput.value;
+  if (!yearMonth) return;
+
+  const [year, month] = yearMonth.split('-');
+  const startDate = `${year}-${month}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+
+  try {
+    showToast('엑셀 파일을 생성하고 있습니다...', 'success');
+
+    // Load SheetJS library if not already loaded
+    if (typeof XLSX === 'undefined') {
+      await loadSheetJSForExport();
+    }
+
+    // Fetch data
+    const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
+    const properties = await apiCall('/properties');
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Build room map
+    const roomMap = {};
+    const dormRoomIds = new Set();
+    let totalRoomCount = 0;
+    let dormRoomCount = 0;
+
+    properties.forEach(property => {
+      if (property.rooms) {
+        property.rooms.forEach(room => {
+          roomMap[room.id] = room;
+          const isDorm = room.type.includes('도미토리') || room.type.includes('도미') || room.type.toLowerCase().includes('dorm');
+          if (isDorm) {
+            dormRoomIds.add(room.id);
+            dormRoomCount += (room.total_rooms || 1);
+          }
+          totalRoomCount += (room.total_rooms || 1);
+        });
+      }
+    });
+
+    const nonDormRoomCount = totalRoomCount - dormRoomCount;
+
+    // Get days in month
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dates = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      dates.push(day);
+    }
+
+    // Initialize daily stats
+    const dailyStats = {};
+    dates.forEach(day => {
+      dailyStats[day] = {
+        dormRevenue: 0,
+        nonDormRevenue: 0,
+        channels: { BOOKING_COM: 0, YANOLJA: 0, AIRBNB: 0, DIRECT: 0 },
+        paymentMethods: { card: 0, transfer: 0, cash: 0, paypal: 0, toss: 0 },
+        dormOccupied: 0,
+        nonDormOccupied: 0
+      };
+    });
+
+    // Process reservations (exclude cancelled)
+    reservations.forEach(res => {
+      if (res.status === 'CANCELLED') return;
+
+      const checkIn = new Date(res.check_in);
+      const checkOut = new Date(res.check_out);
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      const revenue = parseFloat(res.total_price || 0);
+      const revenuePerNight = nights > 0 ? revenue / nights : 0;
+
+      const isDorm = dormRoomIds.has(res.room_id);
+
+      for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+        if (d.getMonth() + 1 === parseInt(month) && d.getFullYear() === parseInt(year)) {
+          const day = d.getDate();
+          if (dailyStats[day]) {
+            if (isDorm) {
+              dailyStats[day].dormRevenue += revenuePerNight;
+              dailyStats[day].dormOccupied += 1;
+            } else {
+              dailyStats[day].nonDormRevenue += revenuePerNight;
+              dailyStats[day].nonDormOccupied += 1;
+            }
+
+            const channel = res.channel || 'DIRECT';
+            if (dailyStats[day].channels[channel] !== undefined) {
+              dailyStats[day].channels[channel] += revenuePerNight;
+            }
+
+            const paymentMethod = res.payment_method || 'card';
+            if (dailyStats[day].paymentMethods[paymentMethod] !== undefined) {
+              dailyStats[day].paymentMethods[paymentMethod] += revenuePerNight;
+            }
+          }
+        }
+      }
+    });
+
+    // Create revenue sheet data
+    const revenueData = [
+      ['날짜', '도미토리', '일반객실', '부킹닷컴', '야놀자', '에어비앤비', '직접예약', '카드', '계좌이체', '현금', '페이팔', '토스', '일일 합계', '도미 예약율(%)', '일반 예약율(%)']
+    ];
+
+    let totalRevenue = 0;
+    dates.forEach(day => {
+      const stats = dailyStats[day];
+      const dailyTotal = stats.dormRevenue + stats.nonDormRevenue;
+      totalRevenue += dailyTotal;
+
+      const dormOccupancy = dormRoomCount > 0 ? ((stats.dormOccupied / dormRoomCount) * 100) : 0;
+      const nonDormOccupancy = nonDormRoomCount > 0 ? ((stats.nonDormOccupied / nonDormRoomCount) * 100) : 0;
+
+      revenueData.push([
+        `${year}-${month}-${String(day).padStart(2, '0')}`,
+        Math.round(stats.dormRevenue),
+        Math.round(stats.nonDormRevenue),
+        Math.round(stats.channels.BOOKING_COM),
+        Math.round(stats.channels.YANOLJA),
+        Math.round(stats.channels.AIRBNB),
+        Math.round(stats.channels.DIRECT),
+        Math.round(stats.paymentMethods.card),
+        Math.round(stats.paymentMethods.transfer),
+        Math.round(stats.paymentMethods.cash),
+        Math.round(stats.paymentMethods.paypal),
+        Math.round(stats.paymentMethods.toss),
+        Math.round(dailyTotal),
+        dormOccupancy.toFixed(1),
+        nonDormOccupancy.toFixed(1)
+      ]);
+    });
+
+    // Add total row
+    revenueData.push([
+      '월 합계',
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].dormRevenue, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].nonDormRevenue, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.BOOKING_COM, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.YANOLJA, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.AIRBNB, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.DIRECT, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.card, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.transfer, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.cash, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.paypal, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.toss, 0)),
+      Math.round(totalRevenue),
+      '',
+      ''
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(revenueData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // 날짜
+      { wch: 12 }, // 도미토리
+      { wch: 12 }, // 일반객실
+      { wch: 12 }, // 부킹닷컴
+      { wch: 10 }, // 야놀자
+      { wch: 12 }, // 에어비앤비
+      { wch: 12 }, // 직접예약
+      { wch: 10 }, // 카드
+      { wch: 12 }, // 계좌이체
+      { wch: 10 }, // 현금
+      { wch: 10 }, // 페이팔
+      { wch: 10 }, // 토스
+      { wch: 12 }, // 일일 합계
+      { wch: 15 }, // 도미 예약율
+      { wch: 15 }  // 일반 예약율
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, '매출현황');
+
+    // Create reservations detail sheet
+    const reservationData = [
+      ['예약번호', '채널', '숙소', '객실', '고객명', '체크인', '체크아웃', '박수', '인원', '금액', '결제방법', '상태']
+    ];
+
+    const activeReservations = reservations.filter(res => res.status !== 'CANCELLED');
+    activeReservations.forEach(res => {
+      const checkIn = new Date(res.check_in);
+      const checkOut = new Date(res.check_out);
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      const room = roomMap[res.room_id];
+
+      reservationData.push([
+        res.channel_reservation_id || res.id,
+        getChannelNameForExport(res.channel),
+        room?.properties?.name || '-',
+        room?.name || '-',
+        res.guest_name,
+        res.check_in.split('T')[0],
+        res.check_out.split('T')[0],
+        nights,
+        res.number_of_guests || 1,
+        parseFloat(res.total_price || 0),
+        res.payment_method || '카드',
+        getStatusTextForExport(res.status)
+      ]);
+    });
+
+    const ws2 = XLSX.utils.aoa_to_sheet(reservationData);
+    ws2['!cols'] = [
+      { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 12 },
+      { wch: 12 }, { wch: 10 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws2, '예약상세');
+
+    // Save file
+    const filename = `장부_${year}년_${month}월_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    showToast('엑셀 파일이 다운로드되었습니다.', 'success');
+  } catch (error) {
+    console.error('Excel export failed:', error);
+    showToast('엑셀 내보내기 실패: ' + error.message, 'error');
+  }
+}
+
+function loadSheetJSForExport() {
+  return new Promise((resolve, reject) => {
+    if (typeof XLSX !== 'undefined') {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('SheetJS 라이브러리 로딩 실패'));
+    document.head.appendChild(script);
+  });
+}
+
+function getChannelNameForExport(channel) {
+  const names = {
+    'BOOKING_COM': '부킹닷컴',
+    'YANOLJA': '야놀자',
+    'AIRBNB': '에어비앤비',
+    'DIRECT': '직접예약'
+  };
+  return names[channel] || channel;
+}
+
+function getStatusTextForExport(status) {
+  const texts = {
+    'CONFIRMED': '확정',
+    'CANCELLED': '취소',
+    'CHECKED_IN': '체크인',
+    'CHECKED_OUT': '체크아웃',
+    'NO_SHOW': '노쇼'
+  };
+  return texts[status] || status;
 }
 
 router.register('ledger', loadLedger);

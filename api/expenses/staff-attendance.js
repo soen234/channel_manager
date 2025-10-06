@@ -6,6 +6,8 @@ module.exports = async (req, res) => {
     return res.status(authResult.status).json({ error: authResult.error });
   }
 
+  const organizationId = authResult.organizationId;
+
   if (req.method === 'GET') {
     try {
       const { start_date, end_date, staff_name } = req.query;
@@ -13,6 +15,7 @@ module.exports = async (req, res) => {
       let query = supabase
         .from('staff_attendance')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('work_date', { ascending: false });
 
       if (start_date) {
@@ -49,6 +52,7 @@ module.exports = async (req, res) => {
       const { data, error } = await supabase
         .from('staff_attendance')
         .insert({
+          organization_id: organizationId,
           staff_name,
           work_date,
           hours_worked,
@@ -78,7 +82,8 @@ module.exports = async (req, res) => {
       const { error } = await supabase
         .from('staff_attendance')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organization_id', organizationId);
 
       if (error) {
         throw error;

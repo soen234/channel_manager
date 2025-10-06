@@ -10,6 +10,8 @@ module.exports = async (req, res) => {
     return res.status(authResult.status).json({ error: authResult.error });
   }
 
+  const organizationId = authResult.organizationId;
+
   try {
     const { userId } = req.body;
 
@@ -23,6 +25,7 @@ module.exports = async (req, res) => {
         status: 'DEACTIVATED'
       })
       .eq('user_id', userId)
+      .eq('organization_id', organizationId)
       .select()
       .single();
 

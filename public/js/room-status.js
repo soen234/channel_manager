@@ -67,9 +67,13 @@ async function loadRoomStatus() {
   `;
 
   // Wait for DOM elements to be ready
-  await new Promise(resolve => setTimeout(resolve, 100));
-  await loadPropertyListForStatus();
-  await loadRoomStatusData();
+  try {
+    await waitForElement('statusPropertyId');
+    await loadPropertyListForStatus();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Failed to initialize room status:', error);
+  }
 }
 
 function getToday() {
@@ -85,12 +89,7 @@ function getDateAfterDays(days) {
 async function loadPropertyListForStatus() {
   try {
     const properties = await apiCall('/properties');
-    const select = document.getElementById('statusPropertyId');
-
-    if (!select) {
-      console.error('statusPropertyId element not found');
-      return;
-    }
+    const select = await waitForElement('statusPropertyId');
 
     select.innerHTML = '<option value="">전체 숙소</option>' +
       properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
@@ -100,25 +99,19 @@ async function loadPropertyListForStatus() {
 }
 
 async function loadRoomStatusData() {
-  const propertyIdEl = document.getElementById('statusPropertyId');
-  const startDateEl = document.getElementById('statusStartDate');
-  const endDateEl = document.getElementById('statusEndDate');
-
-  if (!propertyIdEl || !startDateEl || !endDateEl) {
-    console.error('Required form elements not found');
-    return;
-  }
-
-  const propertyId = propertyIdEl.value;
-  const startDate = startDateEl.value;
-  const endDate = endDateEl.value;
-
-  if (!startDate || !endDate) {
-    showToast('시작일과 종료일을 선택해주세요.', 'error');
-    return;
-  }
-
   try {
+    const propertyIdEl = await waitForElement('statusPropertyId');
+    const startDateEl = await waitForElement('statusStartDate');
+    const endDateEl = await waitForElement('statusEndDate');
+
+    const propertyId = propertyIdEl.value;
+    const startDate = startDateEl.value;
+    const endDate = endDateEl.value;
+
+    if (!startDate || !endDate) {
+      showToast('시작일과 종료일을 선택해주세요.', 'error');
+      return;
+    }
     // 숙소 목록 가져오기
     let properties = await apiCall('/properties');
 
@@ -136,15 +129,22 @@ async function loadRoomStatusData() {
       return;
     }
 
-    // 모든 객실 추출
+    // 모든 객실 추출 (total_rooms 개수만큼 분리)
     const rooms = [];
     properties.forEach(property => {
       if (property.rooms && property.rooms.length > 0) {
         property.rooms.forEach(room => {
-          rooms.push({
-            ...room,
-            property_name: property.name
-          });
+          const totalRooms = room.total_rooms || 1;
+          // 각 객실 유닛을 별도 행으로 표시
+          for (let i = 0; i < totalRooms; i++) {
+            rooms.push({
+              ...room,
+              property_name: property.name,
+              unit_number: i + 1,
+              room_type_id: room.id, // Original room type ID
+              display_id: `${room.id}_${i}` // Unique display ID for each unit
+            });
+          }
         });
       }
     });
@@ -186,32 +186,8 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
     dates.push(new Date(d).toISOString().split('T')[0]);
   }
 
-  // 객실별 예약 맵 생성 (room_id -> date -> reservation)
-  const roomReservationMap = {};
-  rooms.forEach(room => {
-    roomReservationMap[room.id] = {};
-  });
-
-  reservations.forEach(res => {
-    const checkIn = new Date(res.check_in);
-    const checkOut = new Date(res.check_out);
-
-    // 체크인부터 체크아웃 전날까지 예약으로 표시
-    for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
-      if (!roomReservationMap[res.room_id]) {
-        roomReservationMap[res.room_id] = {};
-      }
-      if (!roomReservationMap[res.room_id][dateStr]) {
-        roomReservationMap[res.room_id][dateStr] = [];
-      }
-      roomReservationMap[res.room_id][dateStr].push({
-        ...res,
-        isCheckIn: d.toISOString().split('T')[0] === checkIn.toISOString().split('T')[0],
-        isCheckOut: d.toISOString().split('T')[0] === new Date(checkOut.getTime() - 86400000).toISOString().split('T')[0]
-      });
-    }
-  });
+  // Tetris-style allocation: Optimize reservation placement for maximum consecutive availability
+  const roomAllocation = allocateReservationsOptimally(rooms, reservations, dates);
 
   container.innerHTML = `
     <div class="min-w-max">
@@ -236,87 +212,16 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
         </thead>
         <tbody>
           ${rooms.map(room => {
-            // Track which dates have been rendered (for colspan)
-            const renderedDates = new Set();
+            const allocation = roomAllocation[room.display_id] || {};
 
             return `
               <tr class="border-b hover:bg-gray-50">
                 <td class="sticky left-0 z-10 bg-white px-4 py-3 border-r-2 border-gray-300">
-                  <div class="font-medium text-gray-900">${room.name}</div>
+                  <div class="font-medium text-gray-900">${room.name} #${room.unit_number}</div>
                   <div class="text-xs text-gray-500">${room.property_name}</div>
                   <div class="text-xs text-gray-400">${room.type}</div>
                 </td>
-                ${dates.map(date => {
-                  // Skip if already rendered as part of a multi-day reservation
-                  if (renderedDates.has(date)) {
-                    return '';
-                  }
-
-                  const reservationsForDate = roomReservationMap[room.id]?.[date] || [];
-                  const hasReservation = reservationsForDate.length > 0;
-
-                  if (!hasReservation) {
-                    renderedDates.add(date);
-                    return `
-                      <td class="px-2 py-2 border text-center bg-green-50">
-                        <div class="text-xs text-green-700">예약가능</div>
-                      </td>
-                    `;
-                  }
-
-                  const reservation = reservationsForDate[0];
-                  const isCheckIn = reservation.isCheckIn;
-                  const isCheckOut = reservation.isCheckOut;
-
-                  // Calculate colspan for multi-day reservations
-                  let colspan = 1;
-                  const checkInDate = new Date(reservation.check_in);
-                  const checkOutDate = new Date(reservation.check_out);
-                  const currentDate = new Date(date);
-
-                  // Only calculate colspan if this is the check-in date
-                  if (isCheckIn) {
-                    for (let d = new Date(currentDate); d < checkOutDate; d.setDate(d.getDate() + 1)) {
-                      const dateStr = d.toISOString().split('T')[0];
-                      if (dates.includes(dateStr)) {
-                        renderedDates.add(dateStr);
-                        if (dateStr !== date) {
-                          colspan++;
-                        }
-                      }
-                    }
-                  } else {
-                    renderedDates.add(date);
-                  }
-
-                  let bgColor = 'bg-blue-100';
-                  let borderColor = 'border-blue-300';
-                  let statusText = '예약';
-
-                  if (reservation.status === 'CHECKED_IN') {
-                    bgColor = 'bg-red-100';
-                    borderColor = 'border-red-300';
-                    statusText = '체크인';
-                  } else if (reservation.status === 'CHECKED_OUT') {
-                    bgColor = 'bg-gray-100';
-                    borderColor = 'border-gray-300';
-                    statusText = '체크아웃';
-                  } else if (reservation.status === 'CANCELLED') {
-                    bgColor = 'bg-orange-100';
-                    borderColor = 'border-orange-300';
-                    statusText = '취소';
-                  }
-
-                  return `
-                    <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor}">
-                      <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
-                      <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
-                      <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
-                      ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
-                      ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
-                    </td>
-                  `;
-                }).join('')}
+                ${renderRoomRow(allocation, dates)}
               </tr>
             `;
           }).join('')}
@@ -324,6 +229,234 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
       </table>
     </div>
   `;
+}
+
+function renderRoomRow(allocation, dates) {
+  const renderedDates = new Set();
+
+  return dates.map(date => {
+    if (renderedDates.has(date)) {
+      return '';
+    }
+
+    const reservation = allocation[date];
+
+    if (!reservation) {
+      renderedDates.add(date);
+      return `
+        <td class="px-2 py-2 border text-center bg-green-50">
+          <div class="text-xs text-green-700">예약가능</div>
+        </td>
+      `;
+    }
+
+    // Calculate colspan for multi-day reservations
+    const checkInDate = new Date(reservation.check_in).toISOString().split('T')[0];
+    const checkOutDate = new Date(reservation.check_out);
+    const isCheckIn = date === checkInDate;
+
+    let colspan = 1;
+    if (isCheckIn) {
+      const currentDate = new Date(date);
+      for (let d = new Date(currentDate); d < checkOutDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        if (dates.includes(dateStr)) {
+          renderedDates.add(dateStr);
+          if (dateStr !== date) {
+            colspan++;
+          }
+        }
+      }
+    } else {
+      renderedDates.add(date);
+    }
+
+    const checkOutDay = new Date(checkOutDate.getTime() - 86400000).toISOString().split('T')[0];
+    const isCheckOut = date === checkOutDay;
+
+    let bgColor = 'bg-blue-100';
+    let borderColor = 'border-blue-300';
+
+    if (reservation.status === 'CHECKED_IN') {
+      bgColor = 'bg-red-100';
+      borderColor = 'border-red-300';
+    } else if (reservation.status === 'CHECKED_OUT') {
+      bgColor = 'bg-gray-100';
+      borderColor = 'border-gray-300';
+    } else if (reservation.status === 'CANCELLED') {
+      bgColor = 'bg-orange-100';
+      borderColor = 'border-orange-300';
+    }
+
+    return `
+      <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor}">
+        <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
+        <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
+        <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
+        ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
+        ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
+      </td>
+    `;
+  }).join('');
+}
+
+// Tetris-style allocation algorithm
+function allocateReservationsOptimally(rooms, reservations, dates) {
+  // Filter out cancelled reservations
+  const activeReservations = reservations.filter(res => res.status !== 'CANCELLED');
+
+  // Group reservations by room type
+  const reservationsByType = {};
+  activeReservations.forEach(res => {
+    if (!reservationsByType[res.room_id]) {
+      reservationsByType[res.room_id] = [];
+    }
+    reservationsByType[res.room_id].push({
+      ...res,
+      checkInDate: new Date(res.check_in).toISOString().split('T')[0],
+      checkOutDate: new Date(res.check_out).toISOString().split('T')[0],
+      nights: Math.ceil((new Date(res.check_out) - new Date(res.check_in)) / (1000 * 60 * 60 * 24))
+    });
+  });
+
+  // Sort reservations by check-in date, then by number of nights (longer stays first)
+  Object.keys(reservationsByType).forEach(roomTypeId => {
+    reservationsByType[roomTypeId].sort((a, b) => {
+      const dateCompare = a.checkInDate.localeCompare(b.checkInDate);
+      if (dateCompare !== 0) return dateCompare;
+      return b.nights - a.nights; // Longer stays first (Tetris optimization)
+    });
+  });
+
+  // Allocate each reservation to a room unit
+  const allocation = {};
+
+  // Initialize allocation structure
+  rooms.forEach(room => {
+    allocation[room.display_id] = {};
+  });
+
+  // Process each room type's reservations
+  Object.keys(reservationsByType).forEach(roomTypeId => {
+    const typeReservations = reservationsByType[roomTypeId];
+    const roomUnits = rooms.filter(r => r.room_type_id === roomTypeId);
+
+    typeReservations.forEach(reservation => {
+      // Find the best unit for this reservation (Tetris strategy)
+      let bestUnit = null;
+      let bestScore = -1;
+
+      roomUnits.forEach(unit => {
+        // Check if unit is available for entire reservation period
+        const isAvailable = isUnitAvailable(
+          allocation[unit.display_id],
+          reservation.checkInDate,
+          reservation.checkOutDate,
+          dates
+        );
+
+        if (isAvailable) {
+          // Calculate score: prefer units with minimal fragmentation
+          const score = calculateAllocationScore(
+            allocation[unit.display_id],
+            reservation.checkInDate,
+            reservation.checkOutDate,
+            dates
+          );
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestUnit = unit;
+          }
+        }
+      });
+
+      // Allocate reservation to best unit
+      if (bestUnit) {
+        const checkIn = new Date(reservation.checkInDate);
+        const checkOut = new Date(reservation.checkOutDate);
+
+        for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          if (dates.includes(dateStr)) {
+            allocation[bestUnit.display_id][dateStr] = reservation;
+          }
+        }
+      } else {
+        console.warn('Could not allocate reservation:', reservation);
+      }
+    });
+  });
+
+  return allocation;
+}
+
+function isUnitAvailable(unitAllocation, checkInDate, checkOutDate, dates) {
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+
+  for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    if (dates.includes(dateStr) && unitAllocation[dateStr]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function calculateAllocationScore(unitAllocation, checkInDate, checkOutDate, dates) {
+  // Higher score = better allocation
+  // Factors:
+  // 1. Prefer filling gaps (reduce fragmentation)
+  // 2. Prefer creating longer consecutive available periods
+
+  let score = 100;
+
+  const checkInIdx = dates.indexOf(checkInDate);
+  const checkOutIdx = dates.indexOf(new Date(new Date(checkOutDate).getTime() - 86400000).toISOString().split('T')[0]);
+
+  // Check before reservation: prefer if there's an existing reservation adjacent
+  if (checkInIdx > 0) {
+    const dayBefore = dates[checkInIdx - 1];
+    if (unitAllocation[dayBefore]) {
+      score += 50; // Bonus for filling gap after existing reservation
+    }
+  }
+
+  // Check after reservation: prefer if there's an existing reservation adjacent
+  if (checkOutIdx < dates.length - 1) {
+    const dayAfter = dates[checkOutIdx + 1];
+    if (unitAllocation[dayAfter]) {
+      score += 50; // Bonus for filling gap before existing reservation
+    }
+  }
+
+  // Count consecutive available days before this reservation
+  let beforeGap = 0;
+  for (let i = checkInIdx - 1; i >= 0; i--) {
+    if (!unitAllocation[dates[i]]) {
+      beforeGap++;
+    } else {
+      break;
+    }
+  }
+
+  // Count consecutive available days after this reservation
+  let afterGap = 0;
+  for (let i = checkOutIdx + 1; i < dates.length; i++) {
+    if (!unitAllocation[dates[i]]) {
+      afterGap++;
+    } else {
+      break;
+    }
+  }
+
+  // Penalize creating small gaps (< 2 days)
+  if (beforeGap === 1) score -= 30;
+  if (afterGap === 1) score -= 30;
+
+  return score;
 }
 
 router.register('room-status', loadRoomStatus);

@@ -11,10 +11,12 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Only show pending users without organization (not assigned via invite code)
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
       .eq('status', 'PENDING')
+      .is('organization_id', null)
       .order('created_at', { ascending: false });
 
     if (error) {

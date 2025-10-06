@@ -55,7 +55,8 @@ module.exports = async (req, res) => {
       user: data.user,
       session: data.session,
       role: userRole.role,
-      status: userRole.status
+      status: userRole.status,
+      organization_id: userRole.organization_id
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

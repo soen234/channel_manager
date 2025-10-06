@@ -97,7 +97,20 @@ async function apiCall(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+      // Try to parse error message from response body
+      const text = await response.text();
+      let errorMessage = response.statusText;
+
+      try {
+        const errorData = text ? JSON.parse(text) : null;
+        if (errorData && errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        // If parsing fails, use statusText
+      }
+
+      throw new Error(errorMessage);
     }
 
     // Handle empty responses (like DELETE)

@@ -6,6 +6,8 @@ module.exports = async (req, res) => {
     return res.status(authResult.status).json({ error: authResult.error });
   }
 
+  const organizationId = authResult.organizationId;
+
   if (req.method === 'GET') {
     try {
       const { year_month } = req.query;
@@ -18,6 +20,7 @@ module.exports = async (req, res) => {
         .from('monthly_fixed_expenses')
         .select('*')
         .eq('year_month', year_month)
+        .eq('organization_id', organizationId)
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = not found
@@ -42,9 +45,10 @@ module.exports = async (req, res) => {
         .from('monthly_fixed_expenses')
         .upsert({
           year_month,
+          organization_id: organizationId,
           ...expenses
         }, {
-          onConflict: 'year_month'
+          onConflict: 'organization_id,year_month'
         })
         .select()
         .single();

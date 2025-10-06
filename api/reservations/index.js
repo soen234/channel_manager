@@ -1,10 +1,12 @@
-const { authMiddleware, supabase } = require('../_middleware');
+const { requireApproved, supabase } = require('../_middleware');
 
 module.exports = async (req, res) => {
-  const auth = await authMiddleware(req, res);
-  if (auth.error) {
-    return res.status(auth.status).json({ error: auth.error });
+  const authResult = await requireApproved(req, res);
+  if (authResult.error) {
+    return res.status(authResult.status).json({ error: authResult.error });
   }
+
+  const organizationId = authResult.organizationId;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -22,6 +24,7 @@ module.exports = async (req, res) => {
           properties (*)
         )
       `)
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
 
     if (channel) query = query.eq('channel', channel);

@@ -1,4 +1,4 @@
-const { authMiddleware, supabase } = require('../_middleware');
+const { requireApproved, supabase } = require('../_middleware');
 
 /**
  * Bulk create/update reservations from Excel upload
@@ -6,10 +6,12 @@ const { authMiddleware, supabase } = require('../_middleware');
  * Body: { reservations: Array<ReservationData> }
  */
 module.exports = async (req, res) => {
-  const auth = await authMiddleware(req, res);
-  if (auth.error) {
-    return res.status(auth.status).json({ error: auth.error });
+  const authResult = await requireApproved(req, res);
+  if (authResult.error) {
+    return res.status(authResult.status).json({ error: authResult.error });
   }
+
+  const organizationId = authResult.organizationId;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -46,6 +48,7 @@ module.exports = async (req, res) => {
           .from('reservations')
           .select('id')
           .eq('room_id', reservation.room_id)
+          .eq('organization_id', organizationId)
           .eq('check_in', reservation.check_in)
           .eq('guest_name', reservation.guest_name)
           .maybeSingle();
@@ -67,13 +70,15 @@ module.exports = async (req, res) => {
             .update({
               guest_email: reservation.guest_email || '',
               guest_phone: reservation.guest_phone || '',
+              guest_country: reservation.guest_country || '',
               check_out: reservation.check_out,
               number_of_guests: reservation.num_guests || 1,
               total_price: reservation.total_price,
               channel: reservation.channel || 'DIRECT',
               status: reservation.status || 'CONFIRMED'
             })
-            .eq('id', existing.id);
+            .eq('id', existing.id)
+            .eq('organization_id', organizationId);
 
           if (updateError) {
             console.error('Update error:', updateError);
@@ -91,11 +96,13 @@ module.exports = async (req, res) => {
             .from('reservations')
             .insert({
               room_id: reservation.room_id,
+              organization_id: organizationId,
               channel: reservation.channel || 'DIRECT',
               channel_reservation_id: reservation.notes || `EXCEL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               guest_name: reservation.guest_name,
               guest_email: reservation.guest_email || '',
               guest_phone: reservation.guest_phone || '',
+              guest_country: reservation.guest_country || '',
               check_in: reservation.check_in,
               check_out: reservation.check_out,
               number_of_guests: reservation.num_guests || 1,

@@ -152,8 +152,24 @@ async function refreshProperties() {
             <h3 class="text-xl font-bold text-gray-800">${property.name}</h3>
             <p class="text-gray-600 text-sm">${property.address}</p>
             ${property.description ? `<p class="text-gray-500 text-sm mt-2">${property.description}</p>` : ''}
+            ${property.invite_code ? `
+              <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <span class="text-sm text-blue-700 font-semibold">초대 코드:</span>
+                <span class="font-mono text-lg text-blue-900">${property.invite_code}</span>
+                <button onclick="copyInviteCode('${property.invite_code}')"
+                  class="text-blue-600 hover:text-blue-800" title="복사">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                  </svg>
+                </button>
+              </div>
+            ` : ''}
           </div>
           <div class="flex space-x-2">
+            <button onclick="managePropertyStaff('${property.id}', '${property.name}')"
+              class="px-3 py-1 text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 rounded">
+              스태프 관리
+            </button>
             <button onclick="editProperty('${property.id}')"
               class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded">
               수정
@@ -363,14 +379,233 @@ async function saveRoom(event) {
 }
 
 async function deleteRoom(propertyId, roomId) {
-  if (!confirm('이 객실을 삭제하시겠습니까?')) return;
+  if (!confirm('이 객실을 삭제하시겠습니까?\n\n참고: 예약 내역이 있는 객실은 삭제할 수 없습니다.')) return;
 
   try {
     await apiCall(`/properties?propertyId=${propertyId}&roomId=${roomId}`, { method: 'DELETE' });
-    showToast('객실이 삭제되었습니다.');
+    showToast('객실이 삭제되었습니다.', 'success');
     await refreshProperties();
   } catch (error) {
-    showToast('삭제 중 오류가 발생했습니다.', 'error');
+    console.error('Delete room error:', error);
+    // Error message is already shown by apiCall
+    // Just prevent further action
+  }
+}
+
+function copyInviteCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('초대 코드가 복사되었습니다', 'success');
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    showToast('복사 실패', 'error');
+  });
+}
+
+async function managePropertyStaff(propertyId, propertyName) {
+  // Create modal HTML if it doesn't exist
+  let modal = document.getElementById('staffManagementModal');
+  if (!modal) {
+    const modalHTML = `
+      <div id="staffManagementModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold" id="staffModalPropertyName"></h2>
+            <button onclick="closeStaffModal()" class="text-gray-500 hover:text-gray-700">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <input type="hidden" id="currentPropertyId">
+
+          <!-- 스태프 목록 -->
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-4">스태프 목록</h3>
+            <div id="propertyStaffList">
+              <div class="text-center py-4 text-gray-500">로딩중...</div>
+            </div>
+          </div>
+
+          <!-- 스태프 추가 -->
+          <div class="border-t pt-6">
+            <h3 class="text-lg font-semibold mb-4">스태프 추가</h3>
+            <form id="addStaffForm" onsubmit="addStaffToProperty(event)">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                  <label class="block text-gray-700 text-sm font-bold mb-2">이메일</label>
+                  <input type="email" id="newStaffEmail" required placeholder="staff@example.com"
+                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2">역할</label>
+                  <select id="newStaffRole" required
+                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="STAFF">스태프</option>
+                    <option value="ADMIN">관리자</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                스태프 추가
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    modal = document.getElementById('staffManagementModal');
+  }
+
+  // Set property info
+  document.getElementById('staffModalPropertyName').textContent = `${propertyName} - 스태프 관리`;
+  document.getElementById('currentPropertyId').value = propertyId;
+
+  // Load staff list
+  await loadPropertyStaff(propertyId);
+
+  // Show modal
+  modal.classList.remove('hidden');
+}
+
+function closeStaffModal() {
+  document.getElementById('staffManagementModal').classList.add('hidden');
+  document.getElementById('addStaffForm').reset();
+}
+
+async function loadPropertyStaff(propertyId) {
+  try {
+    const staff = await apiCall(`/properties/staff?propertyId=${propertyId}`);
+    renderPropertyStaffList(staff);
+  } catch (error) {
+    console.error('Failed to load property staff:', error);
+    document.getElementById('propertyStaffList').innerHTML = `
+      <div class="text-center py-4 text-red-500">스태프 목록 로딩 실패</div>
+    `;
+  }
+}
+
+function renderPropertyStaffList(staff) {
+  const container = document.getElementById('propertyStaffList');
+
+  if (!staff || staff.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-gray-500">
+        <p>이 숙소에 배정된 스태프가 없습니다.</p>
+        <p class="text-sm mt-2">아래 양식으로 스태프를 추가하거나, 초대 코드를 공유하세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="min-w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">이메일</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">역할</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">상태</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">추가일</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          ${staff.map(s => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 text-sm text-gray-900">${s.email}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 text-xs rounded ${
+                  s.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                }">
+                  ${s.role === 'ADMIN' ? '관리자' : '스태프'}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 text-xs rounded ${
+                  s.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }">
+                  ${s.status === 'ACTIVE' ? '활성' : '비활성'}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-700">
+                ${s.created_at ? new Date(s.created_at).toLocaleDateString('ko-KR') : '-'}
+              </td>
+              <td class="px-4 py-3 text-center">
+                ${s.status === 'ACTIVE' ? `
+                  <button onclick="removeStaffFromProperty('${s.property_id}', '${s.user_id}', '${s.email}')"
+                    class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                    제거
+                  </button>
+                ` : `
+                  <span class="text-xs text-gray-500">비활성</span>
+                `}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function addStaffToProperty(event) {
+  event.preventDefault();
+
+  const propertyId = document.getElementById('currentPropertyId').value;
+  const email = document.getElementById('newStaffEmail').value;
+  const role = document.getElementById('newStaffRole').value;
+
+  try {
+    // First, find user by email
+    const response = await apiCall('/admin/find-user-by-email', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+
+    if (!response || !response.userId) {
+      showToast('해당 이메일로 가입된 사용자를 찾을 수 없습니다.', 'error');
+      return;
+    }
+
+    // Add staff to property
+    await apiCall(`/properties/staff?propertyId=${propertyId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: response.userId,
+        role
+      })
+    });
+
+    showToast('스태프가 추가되었습니다.', 'success');
+    document.getElementById('addStaffForm').reset();
+    await loadPropertyStaff(propertyId);
+  } catch (error) {
+    console.error('Failed to add staff:', error);
+    if (error.message.includes('already assigned')) {
+      showToast('이미 이 숙소에 배정된 사용자입니다.', 'error');
+    } else {
+      showToast('스태프 추가 실패', 'error');
+    }
+  }
+}
+
+async function removeStaffFromProperty(propertyId, userId, email) {
+  if (!confirm(`${email}을(를) 이 숙소에서 제거하시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    await apiCall(`/properties/staff?propertyId=${propertyId}&userId=${userId}`, {
+      method: 'DELETE'
+    });
+
+    showToast('스태프가 제거되었습니다.', 'success');
+    await loadPropertyStaff(propertyId);
+  } catch (error) {
+    console.error('Failed to remove staff:', error);
+    showToast('스태프 제거 실패', 'error');
   }
 }
 

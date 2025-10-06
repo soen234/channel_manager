@@ -161,6 +161,7 @@ function renderLedgerTable(reservations, properties, year, month) {
         DIRECT: 0
       },
       paymentMethods: {
+        platform: 0,  // 플랫폼 결제 (채널 예약)
         card: 0,
         transfer: 0,
         cash: 0,
@@ -215,8 +216,19 @@ function renderLedgerTable(reservations, properties, year, month) {
           dailyStats[day].channels.DIRECT += revenuePerNight;
         }
 
-        // Payment method (default to card for now - can be extended)
-        dailyStats[day].paymentMethods.card += revenuePerNight;
+        // Payment method
+        // 채널 예약 (부킹닷컴, 야놀자, 에어비앤비 등)은 플랫폼 결제로 분류
+        if (channel !== 'DIRECT') {
+          dailyStats[day].paymentMethods.platform += revenuePerNight;
+        } else {
+          // 직접 예약만 실제 결제 방식으로 분류
+          const paymentMethod = res.payment_method || 'card';
+          if (dailyStats[day].paymentMethods[paymentMethod] !== undefined) {
+            dailyStats[day].paymentMethods[paymentMethod] += revenuePerNight;
+          } else {
+            dailyStats[day].paymentMethods.card += revenuePerNight;
+          }
+        }
       }
     }
   });
@@ -225,7 +237,7 @@ function renderLedgerTable(reservations, properties, year, month) {
   let totalDormRevenue = 0;
   let totalNonDormRevenue = 0;
   let totalChannels = { BOOKING_COM: 0, YANOLJA: 0, AIRBNB: 0, DIRECT: 0 };
-  let totalPaymentMethods = { card: 0, transfer: 0, cash: 0, paypal: 0, toss: 0 };
+  let totalPaymentMethods = { platform: 0, card: 0, transfer: 0, cash: 0, paypal: 0, toss: 0 };
   let totalDormOccupied = 0;
   let totalNonDormOccupied = 0;
 
@@ -267,6 +279,7 @@ function renderLedgerTable(reservations, properties, year, month) {
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">야놀자</th>
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">에어비앤비</th>
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">직접예약</th>
+            <th class="border px-3 py-2 text-right font-semibold text-purple-700 bg-purple-50">플랫폼</th>
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">현장카드</th>
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">계좌이체</th>
             <th class="border px-3 py-2 text-right font-semibold text-gray-700">현금</th>
@@ -294,6 +307,7 @@ function renderLedgerTable(reservations, properties, year, month) {
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.channels.YANOLJA)}</td>
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.channels.AIRBNB)}</td>
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.channels.DIRECT)}</td>
+                <td class="border px-3 py-2 text-right bg-purple-50">${formatCurrency(stats.paymentMethods.platform)}</td>
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.paymentMethods.card)}</td>
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.paymentMethods.transfer)}</td>
                 <td class="border px-3 py-2 text-right">${formatCurrency(stats.paymentMethods.cash)}</td>
@@ -311,6 +325,7 @@ function renderLedgerTable(reservations, properties, year, month) {
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.YANOLJA)}</td>
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.AIRBNB)}</td>
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.DIRECT)}</td>
+            <td class="border px-3 py-2 text-right text-purple-700 bg-purple-50">${formatCurrency(totalPaymentMethods.platform)}</td>
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.card)}</td>
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.transfer)}</td>
             <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.cash)}</td>
@@ -905,7 +920,7 @@ async function exportLedger() {
         dormRevenue: 0,
         nonDormRevenue: 0,
         channels: { BOOKING_COM: 0, YANOLJA: 0, AIRBNB: 0, DIRECT: 0 },
-        paymentMethods: { card: 0, transfer: 0, cash: 0, paypal: 0, toss: 0 },
+        paymentMethods: { platform: 0, card: 0, transfer: 0, cash: 0, paypal: 0, toss: 0 },
         dormOccupied: 0,
         nonDormOccupied: 0
       };
@@ -940,9 +955,16 @@ async function exportLedger() {
               dailyStats[day].channels[channel] += revenuePerNight;
             }
 
-            const paymentMethod = res.payment_method || 'card';
-            if (dailyStats[day].paymentMethods[paymentMethod] !== undefined) {
-              dailyStats[day].paymentMethods[paymentMethod] += revenuePerNight;
+            // Payment method - 채널 예약은 플랫폼, 직접 예약만 실제 결제 방식
+            if (channel !== 'DIRECT') {
+              dailyStats[day].paymentMethods.platform += revenuePerNight;
+            } else {
+              const paymentMethod = res.payment_method || 'card';
+              if (dailyStats[day].paymentMethods[paymentMethod] !== undefined) {
+                dailyStats[day].paymentMethods[paymentMethod] += revenuePerNight;
+              } else {
+                dailyStats[day].paymentMethods.card += revenuePerNight;
+              }
             }
           }
         }
@@ -951,7 +973,7 @@ async function exportLedger() {
 
     // Create revenue sheet data
     const revenueData = [
-      ['날짜', '도미토리', '일반객실', '부킹닷컴', '야놀자', '에어비앤비', '직접예약', '카드', '계좌이체', '현금', '페이팔', '토스', '일일 합계', '도미 예약율(%)', '일반 예약율(%)']
+      ['날짜', '도미토리', '일반객실', '부킹닷컴', '야놀자', '에어비앤비', '직접예약', '플랫폼', '카드', '계좌이체', '현금', '페이팔', '토스', '일일 합계', '도미 예약율(%)', '일반 예약율(%)']
     ];
 
     let totalRevenue = 0;
@@ -971,6 +993,7 @@ async function exportLedger() {
         Math.round(stats.channels.YANOLJA),
         Math.round(stats.channels.AIRBNB),
         Math.round(stats.channels.DIRECT),
+        Math.round(stats.paymentMethods.platform),
         Math.round(stats.paymentMethods.card),
         Math.round(stats.paymentMethods.transfer),
         Math.round(stats.paymentMethods.cash),
@@ -991,6 +1014,7 @@ async function exportLedger() {
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.YANOLJA, 0)),
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.AIRBNB, 0)),
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].channels.DIRECT, 0)),
+      Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.platform, 0)),
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.card, 0)),
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.transfer, 0)),
       Math.round(dates.reduce((sum, day) => sum + dailyStats[day].paymentMethods.cash, 0)),
@@ -1012,6 +1036,7 @@ async function exportLedger() {
       { wch: 10 }, // 야놀자
       { wch: 12 }, // 에어비앤비
       { wch: 12 }, // 직접예약
+      { wch: 10 }, // 플랫폼
       { wch: 10 }, // 카드
       { wch: 12 }, // 계좌이체
       { wch: 10 }, // 현금

@@ -6,6 +6,8 @@ module.exports = async (req, res) => {
     return res.status(authResult.status).json({ error: authResult.error });
   }
 
+  const organizationId = authResult.organizationId;
+
   if (req.method === 'GET') {
     try {
       const { start_date, end_date } = req.query;
@@ -13,6 +15,7 @@ module.exports = async (req, res) => {
       let query = supabase
         .from('supply_purchases')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('purchase_date', { ascending: false });
 
       if (start_date) {
@@ -45,6 +48,7 @@ module.exports = async (req, res) => {
       const { data, error } = await supabase
         .from('supply_purchases')
         .insert({
+          organization_id: organizationId,
           purchase_date,
           item_name,
           store,
@@ -75,7 +79,8 @@ module.exports = async (req, res) => {
       const { error } = await supabase
         .from('supply_purchases')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organization_id', organizationId);
 
       if (error) {
         throw error;

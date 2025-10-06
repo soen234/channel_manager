@@ -10,6 +10,8 @@ module.exports = async (req, res) => {
     return res.status(authResult.status).json({ error: authResult.error });
   }
 
+  const organizationId = authResult.organizationId;
+
   try {
     const { userId, role } = req.body;
 
@@ -17,15 +19,18 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Invalid request. userId and role (ADMIN or STAFF) required' });
     }
 
+    // Update the pending user and assign to organization
     const { data, error } = await supabase
       .from('user_roles')
       .update({
+        organization_id: organizationId,
         role,
         status: 'ACTIVE',
         approved_by: authResult.user.id,
         approved_at: new Date().toISOString()
       })
       .eq('user_id', userId)
+      .eq('status', 'PENDING')
       .select()
       .single();
 

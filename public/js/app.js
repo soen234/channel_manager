@@ -85,6 +85,17 @@ async function apiCall(endpoint, options = {}) {
       ...options
     });
 
+    // Handle 401 Unauthorized - session expired
+    if (response.status === 401) {
+      showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+      setTimeout(() => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        window.location.href = '/login.html';
+      }, 1500);
+      throw new Error('Session expired');
+    }
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`);
     }
@@ -93,8 +104,11 @@ async function apiCall(endpoint, options = {}) {
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   } catch (error) {
-    console.error('API call failed:', error);
-    showToast('오류가 발생했습니다: ' + error.message, 'error');
+    // Don't show duplicate toast for session expiry
+    if (error.message !== 'Session expired') {
+      console.error('API call failed:', error);
+      showToast('오류가 발생했습니다: ' + error.message, 'error');
+    }
     throw error;
   }
 }

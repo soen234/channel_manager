@@ -92,11 +92,20 @@ async function initPage() {
     });
   }
 
+  // 할일 날짜 선택기 초기화
+  const today = new Date().toISOString().split('T')[0];
+  const datePicker = document.getElementById('taskDatePicker');
+  if (datePicker) {
+    datePicker.value = today;
+    window.currentTaskDate = today;
+  }
+
   await refreshAll();
 }
 
 async function refreshAll() {
   await Promise.all([
+    loadTasksByDate(window.currentTaskDate || new Date().toISOString().split('T')[0]),
     loadTodayCheckins(),
     loadCurrentGuests(),
     loadTodayCheckouts(),
@@ -408,6 +417,134 @@ async function markRequestComplete(requestId, isComplete) {
   } catch (error) {
     console.error('Failed to complete request:', error);
     showToast('완료 처리 실패');
+  }
+}
+
+// 할일 관리
+async function changeTaskDate(direction) {
+  const datePicker = document.getElementById('taskDatePicker');
+  if (!datePicker) return;
+
+  let newDate;
+  if (direction === 'today') {
+    newDate = new Date().toISOString().split('T')[0];
+  } else if (direction === 0) {
+    // Date picker changed
+    newDate = datePicker.value;
+  } else {
+    // Previous/Next day
+    const currentDate = new Date(datePicker.value);
+    currentDate.setDate(currentDate.getDate() + direction);
+    newDate = currentDate.toISOString().split('T')[0];
+  }
+
+  datePicker.value = newDate;
+  window.currentTaskDate = newDate;
+  await loadTasksByDate(newDate);
+}
+
+async function loadTasksByDate(date) {
+  try {
+    const tasks = await apiCall(`/tasks/daily?date=${date}`);
+
+    // Update date display
+    const dateDisplay = document.getElementById('taskDateDisplay');
+    if (dateDisplay) {
+      const displayDate = new Date(date + 'T00:00:00');
+      dateDisplay.textContent = displayDate.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      });
+    }
+
+    renderTasksList(tasks);
+  } catch (error) {
+    console.error('Failed to load tasks:', error);
+    const container = document.getElementById('todayTasks');
+    if (container) {
+      container.innerHTML = `
+        <div class="text-center py-8 text-red-500">
+          할일 로딩 실패
+        </div>
+      `;
+    }
+  }
+}
+
+function renderTasksList(tasks) {
+  const container = document.getElementById('todayTasks');
+  if (!container) return;
+
+  if (!tasks || tasks.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-gray-500">
+        <p>이 날짜의 할일이 없습니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="space-y-3">
+      ${tasks.map(task => `
+        <div class="border rounded-lg p-4 ${task.completed ? 'bg-gray-50' : 'bg-white'} hover:shadow transition">
+          <div class="flex items-start gap-3">
+            <input type="checkbox"
+              ${task.completed ? 'checked' : ''}
+              onchange="toggleTaskComplete('${task.id}', this.checked)"
+              class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+            >
+            <div class="flex-1">
+              <h3 class="font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}">
+                ${task.title}
+              </h3>
+              ${task.description ? `
+                <p class="text-sm text-gray-600 mt-1 ${task.completed ? 'line-through' : ''}">
+                  ${task.description}
+                </p>
+              ` : ''}
+              <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                ${task.assigned_to_name ? `
+                  <span class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    담당: ${task.assigned_to_name}
+                  </span>
+                ` : ''}
+                ${task.completed && task.completed_at ? `
+                  <span class="flex items-center gap-1 text-green-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    완료: ${new Date(task.completed_at).toLocaleString('ko-KR')}
+                    ${task.completed_by_name ? `by ${task.completed_by_name}` : ''}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function toggleTaskComplete(taskId, completed) {
+  try {
+    await apiCall(`/tasks/daily?id=${taskId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ completed })
+    });
+
+    showToast(completed ? '할일을 완료했습니다.' : '완료를 취소했습니다.');
+    await loadTasksByDate(window.currentTaskDate || new Date().toISOString().split('T')[0]);
+  } catch (error) {
+    console.error('Failed to toggle task:', error);
+    showToast('상태 변경 실패');
+    await loadTasksByDate(window.currentTaskDate || new Date().toISOString().split('T')[0]);
   }
 }
 

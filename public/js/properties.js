@@ -152,18 +152,18 @@ async function refreshProperties() {
             <h3 class="text-xl font-bold text-gray-800">${property.name}</h3>
             <p class="text-gray-600 text-sm">${property.address}</p>
             ${property.description ? `<p class="text-gray-500 text-sm mt-2">${property.description}</p>` : ''}
-            ${property.invite_code ? `
-              <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                <span class="text-sm text-blue-700 font-semibold">초대 코드:</span>
-                <span class="font-mono text-lg text-blue-900">${property.invite_code}</span>
+            <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <span class="text-sm text-blue-700 font-semibold">스태프 초대 코드:</span>
+              <span class="font-mono text-lg text-blue-900">${property.invite_code || '생성 중...'}</span>
+              ${property.invite_code ? `
                 <button onclick="copyInviteCode('${property.invite_code}')"
                   class="text-blue-600 hover:text-blue-800" title="복사">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                   </svg>
                 </button>
-              </div>
-            ` : ''}
+              ` : ''}
+            </div>
           </div>
           <div class="flex space-x-2">
             <button onclick="managePropertyStaff('${property.id}', '${property.name}')"
@@ -419,6 +419,9 @@ async function managePropertyStaff(propertyId, propertyName) {
 
           <input type="hidden" id="currentPropertyId">
 
+          <!-- 초대 코드 표시 -->
+          <div id="staffInviteCodeDisplay"></div>
+
           <!-- 스태프 목록 -->
           <div class="mb-6">
             <h3 class="text-lg font-semibold mb-4">스태프 목록</h3>
@@ -429,7 +432,8 @@ async function managePropertyStaff(propertyId, propertyName) {
 
           <!-- 스태프 추가 -->
           <div class="border-t pt-6">
-            <h3 class="text-lg font-semibold mb-4">스태프 추가</h3>
+            <h3 class="text-lg font-semibold mb-4">기존 회원을 스태프로 추가</h3>
+            <p class="text-sm text-gray-600 mb-4">이미 가입한 회원을 이메일로 검색하여 스태프로 추가할 수 있습니다.</p>
             <form id="addStaffForm" onsubmit="addStaffToProperty(event)">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="md:col-span-2">
@@ -461,6 +465,34 @@ async function managePropertyStaff(propertyId, propertyName) {
   // Set property info
   document.getElementById('staffModalPropertyName').textContent = `${propertyName} - 스태프 관리`;
   document.getElementById('currentPropertyId').value = propertyId;
+
+  // Get property invite code
+  const properties = await apiCall('/properties');
+  const property = properties.find(p => p.id === propertyId);
+  const inviteCodeDisplay = document.getElementById('staffInviteCodeDisplay');
+
+  if (property && property.invite_code) {
+    inviteCodeDisplay.innerHTML = `
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <p class="text-sm text-blue-700 font-semibold mb-2">스태프 초대 코드</p>
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-2xl text-blue-900">${property.invite_code}</span>
+          <button onclick="copyInviteCode('${property.invite_code}')"
+            class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+            복사
+          </button>
+        </div>
+        <p class="text-xs text-gray-600 mt-2">
+          신규 스태프가 회원가입 시 이 코드를 입력하면 자동으로 이 숙소에 배정됩니다.
+        </p>
+      </div>
+    `;
+  } else {
+    inviteCodeDisplay.innerHTML = '';
+  }
 
   // Load staff list
   await loadPropertyStaff(propertyId);

@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
 
   if (req.method === 'GET') {
     try {
-      const { start_date, end_date } = req.query;
+      const { start_date, end_date, year_month } = req.query;
 
       let query = supabase
         .from('supply_purchases')
@@ -18,12 +18,22 @@ module.exports = async (req, res) => {
         .eq('organization_id', organizationId)
         .order('purchase_date', { ascending: false });
 
-      if (start_date) {
-        query = query.gte('purchase_date', start_date);
-      }
+      // Support year_month parameter (YYYY-MM format)
+      if (year_month) {
+        const [year, month] = year_month.split('-');
+        const firstDay = `${year}-${month}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const lastDayStr = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
 
-      if (end_date) {
-        query = query.lte('purchase_date', end_date);
+        query = query.gte('purchase_date', firstDay).lte('purchase_date', lastDayStr);
+      } else {
+        if (start_date) {
+          query = query.gte('purchase_date', start_date);
+        }
+
+        if (end_date) {
+          query = query.lte('purchase_date', end_date);
+        }
       }
 
       const { data, error } = await query;

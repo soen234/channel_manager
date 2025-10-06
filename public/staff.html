@@ -41,6 +41,38 @@
   </header>
 
   <div class="p-4 max-w-7xl mx-auto">
+    <!-- 오늘 할일 -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="mb-4">
+        <h2 class="text-xl font-bold text-indigo-800 mb-2">오늘 할일</h2>
+
+        <!-- Date Navigation -->
+        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+          <button onclick="changeTaskDate(-1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
+            ← 이전
+          </button>
+          <input
+            type="date"
+            id="taskDatePicker"
+            value=""
+            onchange="changeTaskDate(0)"
+            class="px-3 py-1 border border-gray-300 rounded"
+          >
+          <button onclick="changeTaskDate(1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
+            다음 →
+          </button>
+          <button onclick="changeTaskDate('today')" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+            오늘
+          </button>
+          <span id="taskDateDisplay" class="ml-2 text-sm text-gray-600"></span>
+        </div>
+      </div>
+
+      <div id="todayTasks">
+        <div class="text-center py-4 text-gray-500">로딩중...</div>
+      </div>
+    </div>
+
     <!-- 오늘 체크인 예정 -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 class="text-xl font-bold mb-4 text-blue-800">오늘 체크인 예정</h2>

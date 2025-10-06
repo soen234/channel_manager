@@ -41,12 +41,18 @@ module.exports = async (req, res) => {
 
     if (error) throw error;
 
-    // Get user emails
+    // Get user emails from user_roles table
     const userIds = [...new Set(staffList.map(s => s.user_id))];
-    const { data: users } = await supabase.auth.admin.listUsers();
+
+    const { data: userRoles, error: userRolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, email')
+      .in('user_id', userIds);
 
     const userMap = {};
-    users.users.forEach(u => { userMap[u.id] = u.email; });
+    if (userRoles) {
+      userRoles.forEach(u => { userMap[u.user_id] = u.email; });
+    }
 
     // Add property name and email to each staff record
     const enrichedStaff = staffList.map(staff => ({

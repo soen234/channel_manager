@@ -372,54 +372,75 @@ function renderExpensesForm(yearMonth) {
       <h3 class="text-xl font-bold mb-4 text-gray-800">월별 고정 비용</h3>
       <p class="text-sm text-gray-600 mb-6">아래 항목들을 입력하면 자동으로 집계됩니다.</p>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">월세</label>
-          <input type="number" id="exp-rent" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+      <!-- 고정 항목 -->
+      <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-blue-500">
+          고정 항목
+          <span class="text-sm font-normal text-gray-500 ml-2">(매월 일정한 금액)</span>
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">월세</label>
+            <input type="number" id="exp-rent" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">인터넷 비용</label>
+            <input type="number" id="exp-internet" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">화재보험료</label>
+            <input type="number" id="exp-fire-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">정수기</label>
+            <input type="number" id="exp-water-purifier" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">세탁비</label>
+            <input type="number" id="exp-laundry" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">방역비</label>
+            <input type="number" id="exp-pest-control" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">세무사 대리 비용</label>
+            <input type="number" id="exp-tax-service" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">채널매니저 비용</label>
+            <input type="number" id="exp-channel-manager" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">인터넷 비용</label>
-          <input type="number" id="exp-internet" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">화재보험료</label>
-          <input type="number" id="exp-fire-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">정수기</label>
-          <input type="number" id="exp-water-purifier" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">세탁비</label>
-          <input type="number" id="exp-laundry" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">방역비</label>
-          <input type="number" id="exp-pest-control" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">세무사 대리 비용</label>
-          <input type="number" id="exp-tax-service" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">4대 보험료</label>
-          <input type="number" id="exp-social-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">전기요금</label>
-          <input type="number" id="exp-electricity" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">가스요금</label>
-          <input type="number" id="exp-gas" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">수도요금</label>
-          <input type="number" id="exp-water" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">채널매니저 비용</label>
-          <input type="number" id="exp-channel-manager" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+      </div>
+
+      <!-- 변동 항목 -->
+      <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-orange-500">
+          변동 항목
+          <span class="text-sm font-normal text-gray-500 ml-2">(매월 변동되는 금액)</span>
+        </h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">인건비</label>
+            <input type="number" id="exp-labor" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">4대 보험료</label>
+            <input type="number" id="exp-social-insurance" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">전기요금</label>
+            <input type="number" id="exp-electricity" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">가스요금</label>
+            <input type="number" id="exp-gas" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">수도요금</label>
+            <input type="number" id="exp-water" placeholder="0" class="w-full px-3 py-2 border rounded-lg">
+          </div>
         </div>
       </div>
 
@@ -471,10 +492,28 @@ function renderExpensesForm(yearMonth) {
         </button>
       </div>
     </div>
+
+    <!-- 기타 비용 (비품 구매 등) -->
+    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-xl font-bold text-gray-800">기타 비용</h3>
+          <p class="text-sm text-gray-600">비품 구매, 소모품 등 기타 비용을 입력합니다.</p>
+        </div>
+        <button onclick="showAddSupplyModal('${yearMonth}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          + 비용 추가
+        </button>
+      </div>
+
+      <div id="supplyPurchasesList" class="mt-4">
+        <div class="text-center py-4 text-gray-500">로딩 중...</div>
+      </div>
+    </div>
   `;
 
   // Load existing data if any
   loadExistingExpenses(yearMonth);
+  loadSupplyPurchases(yearMonth);
 }
 
 async function loadExistingExpenses(yearMonth) {
@@ -490,11 +529,12 @@ async function loadExistingExpenses(yearMonth) {
       document.getElementById('exp-laundry').value = fixedExpenses.laundry || 0;
       document.getElementById('exp-pest-control').value = fixedExpenses.pest_control || 0;
       document.getElementById('exp-tax-service').value = fixedExpenses.tax_service || 0;
+      document.getElementById('exp-channel-manager').value = fixedExpenses.channel_manager || 0;
+      document.getElementById('exp-labor').value = fixedExpenses.labor || 0;
       document.getElementById('exp-social-insurance').value = fixedExpenses.social_insurance || 0;
       document.getElementById('exp-electricity').value = fixedExpenses.electricity || 0;
       document.getElementById('exp-gas').value = fixedExpenses.gas || 0;
       document.getElementById('exp-water').value = fixedExpenses.water || 0;
-      document.getElementById('exp-channel-manager').value = fixedExpenses.channel_manager || 0;
     }
   } catch (error) {
     console.error('Failed to load expenses:', error);
@@ -510,11 +550,12 @@ async function saveExpenses(yearMonth) {
     laundry: parseFloat(document.getElementById('exp-laundry').value) || 0,
     pest_control: parseFloat(document.getElementById('exp-pest-control').value) || 0,
     tax_service: parseFloat(document.getElementById('exp-tax-service').value) || 0,
+    channel_manager: parseFloat(document.getElementById('exp-channel-manager').value) || 0,
+    labor: parseFloat(document.getElementById('exp-labor').value) || 0,
     social_insurance: parseFloat(document.getElementById('exp-social-insurance').value) || 0,
     electricity: parseFloat(document.getElementById('exp-electricity').value) || 0,
     gas: parseFloat(document.getElementById('exp-gas').value) || 0,
-    water: parseFloat(document.getElementById('exp-water').value) || 0,
-    channel_manager: parseFloat(document.getElementById('exp-channel-manager').value) || 0
+    water: parseFloat(document.getElementById('exp-water').value) || 0
   };
 
   try {
@@ -581,6 +622,213 @@ async function saveCommissionRates() {
   } catch (error) {
     console.error('Failed to save commission rates:', error);
     showToast('수수료율 저장 실패', 'error');
+  }
+}
+
+// Supply purchases (기타 비용) functions
+async function loadSupplyPurchases(yearMonth) {
+  try {
+    const [year, month] = yearMonth.split('-');
+    const supplies = await apiCall(`/expenses/supplies?year_month=${yearMonth}`);
+    renderSupplyPurchasesList(supplies, yearMonth);
+  } catch (error) {
+    console.error('Failed to load supply purchases:', error);
+    document.getElementById('supplyPurchasesList').innerHTML = `
+      <div class="text-center py-4 text-red-500">기타 비용 로딩 실패</div>
+    `;
+  }
+}
+
+function renderSupplyPurchasesList(supplies, yearMonth) {
+  const container = document.getElementById('supplyPurchasesList');
+  if (!container) return;
+
+  if (!supplies || supplies.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-gray-500">
+        <p>등록된 기타 비용이 없습니다.</p>
+        <p class="text-sm mt-2">비품 구매, 소모품 등 기타 비용을 추가하세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const totalAmount = supplies.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+
+  container.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="min-w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">구매일</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">품목</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">구매처</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">카테고리</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">금액</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">메모</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          ${supplies.map(item => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 text-sm text-gray-900">${item.purchase_date ? new Date(item.purchase_date).toLocaleDateString('ko-KR') : '-'}</td>
+              <td class="px-4 py-3 text-sm text-gray-900">${item.item_name || '-'}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">${item.store || '-'}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 text-xs rounded bg-purple-100 text-purple-800">
+                  ${item.category || '기타'}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                ${parseFloat(item.amount || 0).toLocaleString()}원
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">${item.notes || '-'}</td>
+              <td class="px-4 py-3 text-center">
+                <button onclick="deleteSupplyPurchase('${item.id}', '${yearMonth}')"
+                  class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                  삭제
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot class="bg-gray-50">
+          <tr>
+            <td colspan="4" class="px-4 py-3 text-right font-bold text-gray-800">합계</td>
+            <td class="px-4 py-3 text-right font-bold text-blue-600">${totalAmount.toLocaleString()}원</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
+function showAddSupplyModal(yearMonth) {
+  const modalHTML = `
+    <div id="addSupplyModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <h2 class="text-2xl font-bold mb-4">기타 비용 추가</h2>
+        <form id="addSupplyForm" onsubmit="saveSupplyPurchase(event, '${yearMonth}')">
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">구매일 <span class="text-red-500">*</span></label>
+            <input type="date" id="supply-date" required
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">품목 <span class="text-red-500">*</span></label>
+            <input type="text" id="supply-item" required placeholder="예: 세제, 수건, 청소용품"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">구매처</label>
+            <input type="text" id="supply-store" placeholder="예: 이마트, 쿠팡"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">카테고리</label>
+            <select id="supply-category"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="비품">비품</option>
+              <option value="소모품">소모품</option>
+              <option value="청소용품">청소용품</option>
+              <option value="침구류">침구류</option>
+              <option value="주방용품">주방용품</option>
+              <option value="욕실용품">욕실용품</option>
+              <option value="세금">세금</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">금액 (원) <span class="text-red-500">*</span></label>
+            <input type="number" id="supply-amount" required min="0" step="1" placeholder="0"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2">메모</label>
+            <textarea id="supply-notes" rows="2" placeholder="추가 정보 (선택사항)"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button type="button" onclick="closeSupplyModal()"
+              class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+              취소
+            </button>
+            <button type="submit"
+              class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              저장
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  // Remove existing modal if any
+  const existing = document.getElementById('addSupplyModal');
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  // Set default date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('supply-date').value = today;
+}
+
+function closeSupplyModal() {
+  const modal = document.getElementById('addSupplyModal');
+  if (modal) modal.remove();
+}
+
+async function saveSupplyPurchase(event, yearMonth) {
+  event.preventDefault();
+
+  const data = {
+    purchase_date: document.getElementById('supply-date').value,
+    item_name: document.getElementById('supply-item').value,
+    store: document.getElementById('supply-store').value || null,
+    category: document.getElementById('supply-category').value,
+    amount: parseFloat(document.getElementById('supply-amount').value),
+    notes: document.getElementById('supply-notes').value || null
+  };
+
+  try {
+    await apiCall('/expenses/supplies', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    showToast('기타 비용이 추가되었습니다.', 'success');
+    closeSupplyModal();
+    await loadSupplyPurchases(yearMonth);
+  } catch (error) {
+    console.error('Failed to save supply purchase:', error);
+    showToast('기타 비용 저장 실패', 'error');
+  }
+}
+
+async function deleteSupplyPurchase(id, yearMonth) {
+  if (!confirm('이 비용 내역을 삭제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    await apiCall(`/expenses/supplies?id=${id}`, {
+      method: 'DELETE'
+    });
+
+    showToast('비용 내역이 삭제되었습니다.', 'success');
+    await loadSupplyPurchases(yearMonth);
+  } catch (error) {
+    console.error('Failed to delete supply purchase:', error);
+    showToast('비용 내역 삭제 실패', 'error');
   }
 }
 
@@ -678,12 +926,11 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
   const vatRate = 10;
   const estimatedVAT = totalRevenue * (vatRate / 100);
 
-  // Total expenses (commission + VAT + fixed costs placeholder)
-  const fixedCostsPlaceholder = 0; // Would come from API
-  const totalExpenses = totalCommission + estimatedVAT + fixedCostsPlaceholder;
-
-  // Net profit
-  const netProfit = totalRevenue - totalExpenses;
+  // Initial values (will be updated async)
+  let fixedCosts = 0;
+  let supplyCosts = 0;
+  let totalExpenses = totalCommission + estimatedVAT;
+  let netProfit = totalRevenue - totalExpenses;
 
   // Occupancy rates
   const dormOccupancyRate = dormRoomCount > 0
@@ -711,14 +958,41 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
 
           <div class="border-2 border-red-200 rounded-lg p-6 bg-red-50">
             <div class="text-sm text-red-600 font-semibold mb-2">총 비용</div>
-            <div class="text-3xl font-bold text-red-700">${formatCurrency(totalExpenses)}원</div>
-            <div class="text-xs text-red-500 mt-2">수수료 + VAT</div>
+            <div class="text-3xl font-bold text-red-700" id="totalExpensesDisplay">${formatCurrency(totalExpenses)}원</div>
+            <div class="text-xs text-red-500 mt-2">수수료 + VAT + 고정비 + 기타비용</div>
           </div>
 
           <div class="border-2 border-green-200 rounded-lg p-6 bg-green-50">
             <div class="text-sm text-green-600 font-semibold mb-2">순이익</div>
-            <div class="text-3xl font-bold text-green-700">${formatCurrency(netProfit)}원</div>
-            <div class="text-xs text-green-500 mt-2">이익률 ${totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%</div>
+            <div class="text-3xl font-bold text-green-700" id="netProfitDisplay">${formatCurrency(netProfit)}원</div>
+            <div class="text-xs text-green-500 mt-2">이익률 <span id="profitMarginDisplay">${totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}</span>%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 비용 상세 내역 -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-xl font-bold mb-4 text-gray-800">비용 상세 내역</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="text-sm text-gray-600 mb-1">채널 수수료</div>
+            <div class="text-2xl font-bold text-gray-800" id="commissionCost">${formatCurrency(totalCommission)}</div>
+            <div class="text-xs text-gray-500 mt-1">원</div>
+          </div>
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="text-sm text-gray-600 mb-1">부가세 (VAT)</div>
+            <div class="text-2xl font-bold text-gray-800" id="vatCost">${formatCurrency(estimatedVAT)}</div>
+            <div class="text-xs text-gray-500 mt-1">원</div>
+          </div>
+          <div class="border rounded-lg p-4 bg-gray-50">
+            <div class="text-sm text-gray-600 mb-1">고정 비용</div>
+            <div class="text-2xl font-bold text-gray-800" id="fixedCost">0</div>
+            <div class="text-xs text-gray-500 mt-1">원</div>
+          </div>
+          <div class="border rounded-lg p-4 bg-purple-50">
+            <div class="text-sm text-purple-600 mb-1">기타 비용</div>
+            <div class="text-2xl font-bold text-purple-800" id="supplyCost">0</div>
+            <div class="text-xs text-purple-500 mt-1">원 (비품/소모품)</div>
           </div>
         </div>
       </div>
@@ -791,20 +1065,6 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
             <span class="text-sm font-bold text-yellow-700">${formatCurrency(estimatedVAT)}원</span>
           </div>
 
-          <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-            <div>
-              <span class="text-sm font-medium">고정 비용</span>
-              <div class="text-xs text-gray-500 mt-1">월세, 인건비, 공과금 등</div>
-            </div>
-            <span class="text-sm font-bold text-gray-700">${formatCurrency(fixedCostsPlaceholder)}원</span>
-          </div>
-        </div>
-
-        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div class="text-xs text-blue-600 mb-1">💡 안내</div>
-          <div class="text-sm text-blue-700">
-            고정 비용은 "비용관리" 탭에서 입력하실 수 있습니다. 입력하시면 자동으로 집계됩니다.
-          </div>
         </div>
       </div>
 
@@ -855,6 +1115,47 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
       </div>
     </div>
   `;
+
+  // Load actual expenses asynchronously and update the display
+  (async () => {
+    try {
+      const [fixedExpenses, supplies] = await Promise.all([
+        apiCall(`/expenses/fixed?year_month=${yearMonth}`).catch(() => null),
+        apiCall(`/expenses/supplies?year_month=${yearMonth}`).catch(() => [])
+      ]);
+
+      let actualFixedCosts = 0;
+      let actualSupplyCosts = 0;
+
+      if (fixedExpenses) {
+        actualFixedCosts = Object.keys(fixedExpenses)
+          .filter(key => !['id', 'year_month', 'created_at', 'updated_at', 'organization_id'].includes(key))
+          .reduce((sum, key) => sum + (parseFloat(fixedExpenses[key]) || 0), 0);
+      }
+
+      if (supplies && supplies.length > 0) {
+        actualSupplyCosts = supplies.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      }
+
+      const actualTotalExpenses = totalCommission + estimatedVAT + actualFixedCosts + actualSupplyCosts;
+      const actualNetProfit = totalRevenue - actualTotalExpenses;
+
+      // Update the displayed values
+      const totalExpensesEl = document.getElementById('totalExpensesDisplay');
+      const netProfitEl = document.getElementById('netProfitDisplay');
+      const profitMarginEl = document.getElementById('profitMarginDisplay');
+      const fixedCostEl = document.getElementById('fixedCost');
+      const supplyCostEl = document.getElementById('supplyCost');
+
+      if (totalExpensesEl) totalExpensesEl.textContent = formatCurrency(actualTotalExpenses) + '원';
+      if (netProfitEl) netProfitEl.textContent = formatCurrency(actualNetProfit) + '원';
+      if (profitMarginEl) profitMarginEl.textContent = totalRevenue > 0 ? ((actualNetProfit / totalRevenue) * 100).toFixed(1) : 0;
+      if (fixedCostEl) fixedCostEl.textContent = formatCurrency(actualFixedCosts);
+      if (supplyCostEl) supplyCostEl.textContent = formatCurrency(actualSupplyCosts);
+    } catch (error) {
+      console.error('Failed to load expenses:', error);
+    }
+  })();
 }
 
 async function exportLedger() {

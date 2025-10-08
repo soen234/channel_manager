@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
       `)
       .lte('check_in', today)
       .gt('check_out', today)
-      .eq('status', 'CHECKED_IN')
+      .neq('status', 'CANCELLED')
       .order('rooms(name)', { ascending: true });
 
     if (error) {

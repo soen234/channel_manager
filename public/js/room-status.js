@@ -194,7 +194,7 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
       <table class="min-w-full border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 min-w-[200px]">
+            <th class="sticky left-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 min-w-[200px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
               객실
             </th>
             ${dates.map(date => {
@@ -216,7 +216,7 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
 
             return `
               <tr class="border-b hover:bg-gray-50">
-                <td class="sticky left-0 z-10 bg-white px-4 py-3 border-r-2 border-gray-300">
+                <td class="sticky left-0 z-10 bg-white px-4 py-3 border-r-2 border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                   <div class="font-medium text-gray-900">${room.name} #${room.unit_number}</div>
                   <div class="text-xs text-gray-500">${room.property_name}</div>
                   <div class="text-xs text-gray-400">${room.type}</div>

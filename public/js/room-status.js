@@ -36,7 +36,7 @@ async function loadRoomStatus() {
     </div>
 
     <!-- 객실현황 테이블 -->
-    <div id="roomStatusContent" class="bg-white rounded-lg shadow-md p-6">
+    <div id="roomStatusContent" class="bg-white rounded-lg shadow-md py-6">
       <div class="text-center py-8 text-gray-500">
         숙소와 날짜를 선택하세요
       </div>
@@ -190,12 +190,12 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
   const roomAllocation = allocateReservationsOptimally(rooms, reservations, dates);
 
   container.innerHTML = `
-    <div class="overflow-x-auto -mx-6">
+    <div class="overflow-x-auto">
       <div class="inline-block min-w-full">
         <table class="min-w-full border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="sticky left-6 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 w-32 max-w-[128px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+            <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 w-32 max-w-[128px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
               객실
             </th>
             ${dates.map(date => {

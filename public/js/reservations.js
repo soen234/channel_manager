@@ -3,14 +3,14 @@ async function loadReservations() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">예약 관리</h1>
-      <p class="text-gray-600">전 채널의 예약을 통합 관리합니다</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">예약 관리</h1>
+      <p class="text-sm md:text-base text-gray-600">전 채널의 예약을 통합 관리합니다</p>
     </div>
 
     <!-- 필터 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <!-- 채널 필터 -->
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-3">채널</label>
@@ -67,18 +67,18 @@ async function loadReservations() {
         </div>
       </div>
 
-      <div class="mt-4 flex justify-between items-center">
-        <button onclick="resetFilters()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+      <div class="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <button onclick="resetFilters()" class="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm md:text-base">
           필터 초기화
         </button>
-        <div class="flex space-x-2">
-          <button onclick="showCreateReservationModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="showCreateReservationModal()" class="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base whitespace-nowrap">
             + 예약 생성
           </button>
-          <button onclick="showExcelUploadModal()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+          <button onclick="showExcelUploadModal()" class="px-3 md:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm md:text-base whitespace-nowrap">
             📊 엑셀 업로드
           </button>
-          <button onclick="syncReservations()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          <button onclick="syncReservations()" class="px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm md:text-base whitespace-nowrap">
             예약 동기화
           </button>
         </div>
@@ -86,7 +86,7 @@ async function loadReservations() {
     </div>
 
     <!-- 예약 목록 -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">예약 목록</h2>
         <div id="reservationsCount" class="text-sm text-gray-500"></div>

@@ -24,47 +24,55 @@
 <body class="bg-gray-100 min-h-screen">
   <!-- Header -->
   <header class="bg-white shadow-sm sticky top-0 z-10">
-    <div class="px-4 py-4 flex justify-between items-center">
+    <div class="px-3 md:px-4 py-3 md:py-4 flex justify-between items-center">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">스태프 페이지</h1>
-        <p class="text-sm text-gray-600" id="currentDate"></p>
+        <h1 class="text-lg md:text-2xl font-bold text-gray-800">스태프 페이지</h1>
+        <p class="text-xs md:text-sm text-gray-600" id="currentDate"></p>
       </div>
-      <div class="flex items-center space-x-4">
-        <button onclick="refreshAll()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          새로고침
+      <div class="flex items-center space-x-2 md:space-x-4">
+        <button onclick="refreshAll()" class="px-3 py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm md:text-base">
+          <span class="hidden sm:inline">새로고침</span>
+          <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
         </button>
-        <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-          로그아웃
+        <button onclick="logout()" class="px-3 py-2 md:px-4 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm md:text-base">
+          <span class="hidden sm:inline">로그아웃</span>
+          <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
         </button>
       </div>
     </div>
   </header>
 
-  <div class="p-4 max-w-7xl mx-auto">
+  <div class="p-3 md:p-4 max-w-7xl mx-auto">
     <!-- 오늘 할일 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
       <div class="mb-4">
-        <h2 class="text-xl font-bold text-indigo-800 mb-2">오늘 할일</h2>
+        <h2 class="text-lg md:text-xl font-bold text-indigo-800 mb-2">오늘 할일</h2>
 
         <!-- Date Navigation -->
-        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-          <button onclick="changeTaskDate(-1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
-            ← 이전
+        <div class="flex flex-wrap items-center gap-2 md:gap-3 bg-gray-50 p-2 md:p-3 rounded-lg">
+          <button onclick="changeTaskDate(-1)" class="px-2 md:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm md:text-base">
+            <span class="hidden sm:inline">← 이전</span>
+            <span class="sm:hidden">←</span>
           </button>
           <input
             type="date"
             id="taskDatePicker"
             value=""
             onchange="changeTaskDate(0)"
-            class="px-3 py-1 border border-gray-300 rounded"
+            class="px-2 md:px-3 py-1 border border-gray-300 rounded text-sm md:text-base flex-shrink-0"
           >
-          <button onclick="changeTaskDate(1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
-            다음 →
+          <button onclick="changeTaskDate(1)" class="px-2 md:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm md:text-base">
+            <span class="hidden sm:inline">다음 →</span>
+            <span class="sm:hidden">→</span>
           </button>
-          <button onclick="changeTaskDate('today')" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <button onclick="changeTaskDate('today')" class="px-2 md:px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm md:text-base">
             오늘
           </button>
-          <span id="taskDateDisplay" class="ml-2 text-sm text-gray-600"></span>
+          <span id="taskDateDisplay" class="ml-2 text-xs md:text-sm text-gray-600 w-full sm:w-auto mt-1 sm:mt-0"></span>
         </div>
       </div>
 
@@ -74,42 +82,42 @@
     </div>
 
     <!-- 오늘 체크인 예정 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-xl font-bold mb-4 text-blue-800">오늘 체크인 예정</h2>
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl font-bold mb-4 text-blue-800">오늘 체크인 예정</h2>
       <div id="todayCheckins">
-        <div class="text-center py-4 text-gray-500">로딩중...</div>
+        <div class="text-center py-4 text-gray-500 text-sm md:text-base">로딩중...</div>
       </div>
     </div>
 
     <!-- 현재 숙박 중 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-xl font-bold mb-4 text-green-800">현재 숙박 중</h2>
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl font-bold mb-4 text-green-800">현재 숙박 중</h2>
       <div id="currentGuests">
-        <div class="text-center py-4 text-gray-500">로딩중...</div>
+        <div class="text-center py-4 text-gray-500 text-sm md:text-base">로딩중...</div>
       </div>
     </div>
 
     <!-- 오늘 체크아웃 (청소 필요) -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-xl font-bold mb-4 text-orange-800">오늘 체크아웃 (청소 필요)</h2>
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl font-bold mb-4 text-orange-800">오늘 체크아웃 (청소 필요)</h2>
       <div id="todayCheckouts">
-        <div class="text-center py-4 text-gray-500">로딩중...</div>
+        <div class="text-center py-4 text-gray-500 text-sm md:text-base">로딩중...</div>
       </div>
     </div>
 
     <!-- 청소 요청 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-xl font-bold mb-4 text-purple-800">청소 요청</h2>
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl font-bold mb-4 text-purple-800">청소 요청</h2>
       <div id="cleaningRequests">
-        <div class="text-center py-4 text-gray-500">로딩중...</div>
+        <div class="text-center py-4 text-gray-500 text-sm md:text-base">로딩중...</div>
       </div>
     </div>
 
     <!-- 기타 요청사항 -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-      <h2 class="text-xl font-bold mb-4 text-gray-800">기타 요청사항</h2>
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
+      <h2 class="text-lg md:text-xl font-bold mb-4 text-gray-800">기타 요청사항</h2>
       <div id="otherRequests">
-        <div class="text-center py-4 text-gray-500">로딩중...</div>
+        <div class="text-center py-4 text-gray-500 text-sm md:text-base">로딩중...</div>
       </div>
     </div>
   </div>

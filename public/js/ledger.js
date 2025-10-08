@@ -5,37 +5,37 @@ async function loadLedger() {
   const currentMonth = getCurrentYearMonth();
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">장부</h1>
-      <p class="text-gray-600">월별 매출, 비용 및 예약율 현황</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">장부</h1>
+      <p class="text-sm md:text-base text-gray-600">월별 매출, 비용 및 예약율 현황</p>
     </div>
 
     <!-- 탭 메뉴 -->
-    <div class="bg-white rounded-lg shadow-md mb-6">
-      <div class="border-b">
-        <nav class="flex">
+    <div class="bg-white rounded-lg shadow-md mb-4 md:mb-6">
+      <div class="border-b overflow-x-auto">
+        <nav class="flex min-w-max sm:min-w-0">
           <button onclick="switchLedgerTab('revenue')" id="tab-revenue"
-            class="ledger-tab px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600">
+            class="ledger-tab px-4 md:px-6 py-2 md:py-3 font-semibold text-sm md:text-base text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
             매출현황
           </button>
           <button onclick="switchLedgerTab('expenses')" id="tab-expenses"
-            class="ledger-tab px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+            class="ledger-tab px-4 md:px-6 py-2 md:py-3 font-semibold text-sm md:text-base text-gray-600 hover:text-gray-800 whitespace-nowrap">
             비용관리
           </button>
           <button onclick="switchLedgerTab('summary')" id="tab-summary"
-            class="ledger-tab px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+            class="ledger-tab px-4 md:px-6 py-2 md:py-3 font-semibold text-sm md:text-base text-gray-600 hover:text-gray-800 whitespace-nowrap">
             월간요약
           </button>
         </nav>
       </div>
 
-      <div class="p-6">
-        <div class="flex items-center gap-4 mb-4">
-          <label class="text-gray-700 font-semibold">조회 월:</label>
+      <div class="p-4 md:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 mb-4">
+          <label class="text-gray-700 font-semibold text-sm md:text-base">조회 월:</label>
           <input type="month" id="ledgerMonth" value="${currentMonth}"
             onchange="loadLedgerData()"
-            class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <button onclick="exportLedger()" class="ml-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            class="px-3 md:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base">
+          <button onclick="exportLedger()" class="sm:ml-auto px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm md:text-base whitespace-nowrap">
             엑셀 내보내기
           </button>
         </div>

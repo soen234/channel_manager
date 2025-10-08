@@ -6,31 +6,33 @@ async function loadAdminCleaning() {
   window.currentCleaningDate = today;
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">청소 현황 관리</h1>
-      <p class="text-gray-600">스태프의 청소 완료 현황을 확인할 수 있습니다</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">청소 현황 관리</h1>
+      <p class="text-sm md:text-base text-gray-600">스태프의 청소 완료 현황을 확인할 수 있습니다</p>
     </div>
 
     <!-- Date Navigation -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <div class="flex items-center gap-3">
-        <button onclick="changeCleaningDate(-1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
-          ← 이전
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
+      <div class="flex flex-wrap items-center gap-2 md:gap-3">
+        <button onclick="changeCleaningDate(-1)" class="px-2 md:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm md:text-base">
+          <span class="hidden sm:inline">← 이전</span>
+          <span class="sm:hidden">←</span>
         </button>
         <input
           type="date"
           id="cleaningDatePicker"
           value="${today}"
           onchange="changeCleaningDate(0)"
-          class="px-3 py-1 border border-gray-300 rounded"
+          class="px-2 md:px-3 py-1 border border-gray-300 rounded text-sm md:text-base flex-shrink-0"
         >
-        <button onclick="changeCleaningDate(1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
-          다음 →
+        <button onclick="changeCleaningDate(1)" class="px-2 md:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm md:text-base">
+          <span class="hidden sm:inline">다음 →</span>
+          <span class="sm:hidden">→</span>
         </button>
-        <button onclick="changeCleaningDate('today')" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <button onclick="changeCleaningDate('today')" class="px-2 md:px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm md:text-base">
           오늘
         </button>
-        <span id="cleaningDateDisplay" class="ml-2 text-sm font-semibold text-gray-700"></span>
+        <span id="cleaningDateDisplay" class="ml-2 text-xs md:text-sm font-semibold text-gray-700 w-full sm:w-auto mt-1 sm:mt-0"></span>
       </div>
     </div>
 

@@ -26,8 +26,10 @@
       background-color: rgba(59, 130, 246, 0.1);
       border-left: 4px solid #3b82f6;
     }
+
+    /* Desktop sidebar */
     #sidebar {
-      transition: width 0.3s ease;
+      transition: transform 0.3s ease, width 0.3s ease;
     }
     #sidebar.collapsed {
       width: 64px;
@@ -48,12 +50,68 @@
     #sidebar.collapsed .user-info {
       display: none;
     }
+
+    /* Mobile sidebar */
+    @media (max-width: 768px) {
+      #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 280px;
+        transform: translateX(-100%);
+        z-index: 50;
+      }
+      #sidebar.mobile-open {
+        transform: translateX(0);
+      }
+      #sidebar.collapsed {
+        width: 280px;
+        transform: translateX(-100%);
+      }
+      #sidebar.collapsed.mobile-open {
+        transform: translateX(0);
+      }
+      #sidebar.collapsed .sidebar-text {
+        display: block;
+      }
+      #sidebar.collapsed .sidebar-header {
+        padding: 1.5rem;
+      }
+      #sidebar.collapsed .nav-link {
+        padding: 0.75rem 1.5rem;
+        justify-content: flex-start;
+      }
+      #sidebar.collapsed .user-section {
+        padding: 1.5rem;
+      }
+      #sidebar.collapsed .user-info {
+        display: block;
+      }
+      #overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 40;
+      }
+      #overlay.show {
+        display: block;
+      }
+      main {
+        margin-left: 0 !important;
+      }
+    }
+
     #mainContent {
       transition: margin-left 0.3s;
     }
   </style>
 </head>
 <body class="bg-gray-100">
+  <!-- Mobile overlay -->
+  <div id="overlay" onclick="closeMobileSidebar()"></div>
+
   <div class="flex h-screen">
     <!-- Sidebar -->
     <aside id="sidebar" class="w-64 bg-white shadow-lg overflow-hidden relative">
@@ -149,26 +207,26 @@
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto">
       <!-- Header -->
-      <header class="bg-white shadow-sm">
-        <div class="px-8 py-4 flex justify-between items-center">
+      <header class="bg-white shadow-sm sticky top-0 z-30">
+        <div class="px-4 md:px-8 py-3 md:py-4 flex justify-between items-center">
           <div class="flex items-center">
-            <button onclick="toggleSidebar()" class="mr-4 p-2 rounded-lg hover:bg-gray-100">
+            <button onclick="toggleSidebar()" class="mr-2 md:mr-4 p-2 rounded-lg hover:bg-gray-100">
               <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
               </svg>
             </button>
             <div>
-              <h2 class="text-2xl font-bold text-gray-800" id="pageTitle">대시보드</h2>
-              <p class="text-sm text-gray-600" id="pageSubtitle"></p>
+              <h2 class="text-lg md:text-2xl font-bold text-gray-800" id="pageTitle">대시보드</h2>
+              <p class="text-xs md:text-sm text-gray-600 hidden sm:block" id="pageSubtitle"></p>
             </div>
           </div>
-          <div class="flex items-center space-x-4">
-            <button class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex items-center space-x-2 md:space-x-4">
+            <button class="p-2 text-sm text-gray-600 hover:text-gray-800">
+              <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
               </svg>
             </button>
-            <div class="text-sm text-gray-600">
+            <div class="text-xs md:text-sm text-gray-600 hidden sm:block">
               <span id="currentTime"></span>
             </div>
           </div>
@@ -176,7 +234,7 @@
       </header>
 
       <!-- Page Content -->
-      <div class="p-8" id="mainContent">
+      <div class="p-4 md:p-8" id="mainContent">
         <!-- Dynamic content will be loaded here -->
       </div>
     </main>
@@ -245,8 +303,35 @@
     // 사이드바 토글
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
-      sidebar.classList.toggle('collapsed');
+      const overlay = document.getElementById('overlay');
+
+      // 모바일 체크
+      if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('show');
+      } else {
+        sidebar.classList.toggle('collapsed');
+      }
     }
+
+    // 모바일 사이드바 닫기
+    function closeMobileSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('show');
+    }
+
+    // 네비게이션 링크 클릭시 모바일에서 사이드바 닫기
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 768) {
+            closeMobileSidebar();
+          }
+        });
+      });
+    });
   </script>
 </body>
 </html>

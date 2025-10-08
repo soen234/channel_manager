@@ -3,12 +3,12 @@ async function loadProperties() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6 flex justify-between items-center">
+    <div class="mb-4 md:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
       <div>
-        <h1 class="text-3xl font-bold text-gray-800">숙소 관리</h1>
-        <p class="text-gray-600">숙소 및 객실 정보를 관리합니다</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">숙소 관리</h1>
+        <p class="text-sm md:text-base text-gray-600">숙소 및 객실 정보를 관리합니다</p>
       </div>
-      <button onclick="showAddPropertyModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+      <button onclick="showAddPropertyModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base whitespace-nowrap">
         + 숙소 추가
       </button>
     </div>
@@ -146,15 +146,15 @@ async function refreshProperties() {
     }
 
     container.innerHTML = properties.map(property => `
-      <div class="border rounded-lg p-6 hover:shadow-lg transition">
-        <div class="flex justify-between items-start mb-4">
+      <div class="border rounded-lg p-4 md:p-6 hover:shadow-lg transition">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4 gap-3">
           <div class="flex-1">
-            <h3 class="text-xl font-bold text-gray-800">${property.name}</h3>
-            <p class="text-gray-600 text-sm">${property.address}</p>
-            ${property.description ? `<p class="text-gray-500 text-sm mt-2">${property.description}</p>` : ''}
-            <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-              <span class="text-sm text-blue-700 font-semibold">스태프 초대 코드:</span>
-              <span class="font-mono text-lg text-blue-900">${property.invite_code || '생성 중...'}</span>
+            <h3 class="text-lg md:text-xl font-bold text-gray-800">${property.name}</h3>
+            <p class="text-gray-600 text-xs md:text-sm">${property.address}</p>
+            ${property.description ? `<p class="text-gray-500 text-xs md:text-sm mt-2">${property.description}</p>` : ''}
+            <div class="mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <span class="text-xs md:text-sm text-blue-700 font-semibold">스태프 초대 코드:</span>
+              <span class="font-mono text-sm md:text-lg text-blue-900">${property.invite_code || '생성 중...'}</span>
               ${property.invite_code ? `
                 <button onclick="copyInviteCode('${property.invite_code}')"
                   class="text-blue-600 hover:text-blue-800" title="복사">
@@ -165,17 +165,17 @@ async function refreshProperties() {
               ` : ''}
             </div>
           </div>
-          <div class="flex space-x-2">
+          <div class="flex flex-wrap gap-2">
             <button onclick="managePropertyStaff('${property.id}', '${property.name}')"
-              class="px-3 py-1 text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 rounded">
+              class="px-2 md:px-3 py-1 text-xs md:text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 rounded">
               스태프 관리
             </button>
             <button onclick="editProperty('${property.id}')"
-              class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded">
+              class="px-2 md:px-3 py-1 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded">
               수정
             </button>
             <button onclick="deleteProperty('${property.id}')"
-              class="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded">
+              class="px-2 md:px-3 py-1 text-xs md:text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded">
               삭제
             </button>
           </div>

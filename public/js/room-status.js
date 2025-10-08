@@ -9,7 +9,7 @@ async function loadRoomStatus() {
     </div>
 
     <!-- 필터 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-md py-6 mb-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">숙소 선택</label>
@@ -43,7 +43,7 @@ async function loadRoomStatus() {
     </div>
 
     <!-- 범례 -->
-    <div class="mt-4 bg-white rounded-lg shadow-md p-4">
+    <div class="mt-4 bg-white rounded-lg shadow-md py-4">
       <h3 class="font-semibold mb-2">범례</h3>
       <div class="flex flex-wrap gap-4">
         <div class="flex items-center">
@@ -195,7 +195,7 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
         <table class="min-w-full border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 w-32 max-w-[128px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+            <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 w-40 max-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
               객실
             </th>
             ${dates.map(date => {
@@ -217,7 +217,7 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
 
             return `
               <tr class="border-b hover:bg-gray-50">
-                <td class="sticky left-6 z-10 bg-white px-3 py-2 border-r-2 border-gray-300 w-32 max-w-[128px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                <td class="sticky left-0 z-10 bg-white px-3 py-2 border-r-2 border-gray-300 w-40 max-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                   <div class="font-medium text-gray-900 text-sm leading-tight break-words">${room.name} #${room.unit_number}</div>
                   <div class="text-xs text-gray-500 mt-1 break-words">${room.property_name}</div>
                 </td>

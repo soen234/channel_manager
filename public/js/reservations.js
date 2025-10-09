@@ -404,7 +404,7 @@ function renderReservationsList() {
       <thead class="bg-gray-50">
         <tr>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">채널</th>
-          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">숙소/객실</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 min-w-[140px]">숙소/객실</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">고객 정보</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">체크인</th>
           <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">체크아웃</th>
@@ -427,7 +427,7 @@ function renderReservationsList() {
                   ${getChannelName(res.channel)}
                 </span>
               </td>
-              <td class="px-4 py-3">
+              <td class="px-4 py-3 min-w-[140px]">
                 <div class="text-sm font-medium text-gray-900">${res.rooms?.properties?.name || '-'}</div>
                 <div class="text-xs text-gray-500">${res.rooms?.name || '-'}</div>
               </td>

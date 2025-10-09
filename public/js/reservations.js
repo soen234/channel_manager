@@ -1500,16 +1500,59 @@ function closeCreateReservationModal() {
 async function createReservation(event) {
   event.preventDefault();
 
+  const roomId = document.getElementById('createRoomId').value;
+  const guestName = document.getElementById('createGuestName').value.trim();
+  const checkIn = document.getElementById('createCheckIn').value;
+  const checkOut = document.getElementById('createCheckOut').value;
+  const totalPrice = document.getElementById('createTotalPrice').value;
+  const numberOfGuests = document.getElementById('createNumberOfGuests').value;
+
+  // Frontend validation
+  if (!roomId) {
+    showToast('객실을 선택해주세요', 'error');
+    return;
+  }
+
+  if (!guestName) {
+    showToast('투숙객명을 입력해주세요', 'error');
+    return;
+  }
+
+  if (!checkIn) {
+    showToast('체크인 날짜를 선택해주세요', 'error');
+    return;
+  }
+
+  if (!checkOut) {
+    showToast('체크아웃 날짜를 선택해주세요', 'error');
+    return;
+  }
+
+  if (new Date(checkIn) >= new Date(checkOut)) {
+    showToast('체크아웃 날짜는 체크인 날짜보다 뒤여야 합니다', 'error');
+    return;
+  }
+
+  if (!totalPrice || parseFloat(totalPrice) <= 0) {
+    showToast('유효한 총 금액을 입력해주세요', 'error');
+    return;
+  }
+
+  if (!numberOfGuests || parseInt(numberOfGuests) < 1) {
+    showToast('투숙 인원은 최소 1명 이상이어야 합니다', 'error');
+    return;
+  }
+
   const data = {
-    room_id: document.getElementById('createRoomId').value,
+    room_id: roomId,
     channel: document.getElementById('createChannel').value,
-    guest_name: document.getElementById('createGuestName').value,
+    guest_name: guestName,
     guest_email: document.getElementById('createGuestEmail').value || null,
     guest_phone: document.getElementById('createGuestPhone').value || null,
-    check_in: document.getElementById('createCheckIn').value,
-    check_out: document.getElementById('createCheckOut').value,
-    number_of_guests: parseInt(document.getElementById('createNumberOfGuests').value),
-    total_price: parseFloat(document.getElementById('createTotalPrice').value),
+    check_in: checkIn,
+    check_out: checkOut,
+    number_of_guests: parseInt(numberOfGuests),
+    total_price: parseFloat(totalPrice),
     status: document.getElementById('createStatus').value
   };
 
@@ -1524,7 +1567,8 @@ async function createReservation(event) {
     await loadReservationsList();
   } catch (error) {
     console.error('Failed to create reservation:', error);
-    showToast('예약 생성 실패', 'error');
+    const errorMessage = error.message || '예약 생성 실패';
+    showToast(errorMessage, 'error');
   }
 }
 

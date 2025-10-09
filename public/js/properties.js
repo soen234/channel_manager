@@ -82,8 +82,17 @@ async function loadProperties() {
           <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2">객실 수량</label>
             <input type="number" id="roomTotalRooms" required min="1" max="999" value="1"
+              onchange="updateRoomNumberInputs()"
               class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             <p class="text-xs text-gray-500 mt-1">이 타입의 객실이 총 몇 개인지 입력하세요</p>
+          </div>
+
+          <div id="roomNumbersContainer" class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">호수</label>
+            <div id="roomNumberInputs" class="space-y-2">
+              <input type="text" class="room-number-input w-full px-3 py-2 border rounded-lg" placeholder="예: 101, 201, A동 305">
+            </div>
+            <p class="text-xs text-gray-500 mt-1">각 객실의 호수를 입력하세요 (선택사항)</p>
           </div>
 
           <div class="mb-4">
@@ -304,7 +313,32 @@ function showAddRoomModal(propertyId) {
   document.getElementById('roomForm').reset();
   document.getElementById('roomPropertyId').value = propertyId;
   document.getElementById('roomId').value = '';
+  updateRoomNumberInputs();
   document.getElementById('roomModal').classList.remove('hidden');
+}
+
+function updateRoomNumberInputs() {
+  const totalRooms = parseInt(document.getElementById('roomTotalRooms').value) || 1;
+  const container = document.getElementById('roomNumberInputs');
+  const existingInputs = container.querySelectorAll('.room-number-input');
+
+  // Save existing values
+  const existingValues = Array.from(existingInputs).map(input => input.value);
+
+  // Clear container
+  container.innerHTML = '';
+
+  // Create inputs for each room
+  for (let i = 0; i < totalRooms; i++) {
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'flex items-center gap-2';
+    inputGroup.innerHTML = `
+      <span class="text-sm text-gray-600 w-12">#${i + 1}:</span>
+      <input type="text" class="room-number-input flex-1 px-3 py-2 border rounded-lg"
+        placeholder="예: ${100 + i + 1}" value="${existingValues[i] || ''}">
+    `;
+    container.appendChild(inputGroup);
+  }
 }
 
 function closeRoomModal() {
@@ -336,6 +370,15 @@ async function editRoom(propertyId, roomId) {
     document.getElementById('roomTotalRooms').value = room.total_rooms || 1;
     document.getElementById('roomCapacity').value = room.capacity;
     document.getElementById('roomBasePrice').value = room.base_price;
+
+    // Load room numbers
+    updateRoomNumberInputs();
+    const roomNumbers = room.room_numbers || [];
+    const inputs = document.querySelectorAll('.room-number-input');
+    inputs.forEach((input, index) => {
+      input.value = roomNumbers[index] || '';
+    });
+
     document.getElementById('roomModal').classList.remove('hidden');
   } catch (error) {
     showToast('객실 정보를 불러오는데 실패했습니다.', 'error');
@@ -347,9 +390,17 @@ async function saveRoom(event) {
 
   const propertyId = document.getElementById('roomPropertyId').value;
   const roomId = document.getElementById('roomId').value;
+
+  // Collect room numbers from inputs
+  const roomNumberInputs = document.querySelectorAll('.room-number-input');
+  const roomNumbers = Array.from(roomNumberInputs)
+    .map(input => input.value.trim())
+    .filter(val => val !== '');
+
   const data = {
     name: document.getElementById('roomName').value,
     type: document.getElementById('roomType').value,
+    roomNumbers: roomNumbers.length > 0 ? roomNumbers : null,
     totalRooms: parseInt(document.getElementById('roomTotalRooms').value),
     capacity: parseInt(document.getElementById('roomCapacity').value),
     basePrice: parseFloat(document.getElementById('roomBasePrice').value)

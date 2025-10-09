@@ -138,7 +138,7 @@ module.exports = async (req, res) => {
 
     // POST /api/properties?propertyId=xxx (create room)
     if (req.method === 'POST' && propertyId) {
-      const { name, type, totalRooms, capacity, basePrice } = req.body;
+      const { name, type, roomNumbers, totalRooms, capacity, basePrice } = req.body;
 
       const { data: room, error } = await supabase
         .from('rooms')
@@ -147,6 +147,7 @@ module.exports = async (req, res) => {
           organization_id: organizationId,
           name,
           type,
+          room_numbers: roomNumbers || null,
           total_rooms: totalRooms || 1,
           capacity,
           base_price: basePrice
@@ -160,7 +161,7 @@ module.exports = async (req, res) => {
 
     // PUT /api/properties?propertyId=xxx&roomId=xxx (update room)
     if (req.method === 'PUT' && propertyId && roomId) {
-      const { name, type, totalRooms, capacity, basePrice } = req.body;
+      const { name, type, roomNumbers, totalRooms, capacity, basePrice } = req.body;
 
       const updateData = {
         name,
@@ -168,6 +169,10 @@ module.exports = async (req, res) => {
         capacity,
         base_price: basePrice
       };
+
+      if (roomNumbers !== undefined) {
+        updateData.room_numbers = roomNumbers || null;
+      }
 
       if (totalRooms !== undefined) {
         updateData.total_rooms = totalRooms;

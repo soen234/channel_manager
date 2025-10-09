@@ -86,6 +86,48 @@ function getDateAfterDays(days) {
   return date.toISOString().split('T')[0];
 }
 
+function getRoomNumberDisplay(room) {
+  if (room.room_numbers && Array.isArray(room.room_numbers) && room.room_numbers.length > 0) {
+    const index = room.unit_number - 1;
+    if (index >= 0 && index < room.room_numbers.length && room.room_numbers[index]) {
+      return ' ' + room.room_numbers[index];
+    }
+  }
+  return ' #' + room.unit_number;
+}
+
+// 한국 공휴일 체크 함수
+function isKoreanHoliday(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+
+  // 고정 공휴일
+  const fixedHolidays = [
+    '01-01', // 신정
+    '03-01', // 삼일절
+    '05-05', // 어린이날
+    '06-06', // 현충일
+    '08-15', // 광복절
+    '10-03', // 개천절
+    '10-09', // 한글날
+    '12-25'  // 크리스마스
+  ];
+
+  // 음력 공휴일 (양력 변환 근사치 - 주요 년도)
+  const lunarHolidays = {
+    2025: ['01-28', '01-29', '01-30', '05-05', '09-06', '09-07', '09-08'],
+    2026: ['02-16', '02-17', '02-18', '05-24', '09-25', '09-26', '09-27'],
+    2027: ['02-06', '02-07', '02-08', '05-13', '09-15', '09-16', '09-17'],
+    2028: ['01-26', '01-27', '01-28', '05-01', '10-03', '10-04', '10-05'],
+    2029: ['02-12', '02-13', '02-14', '05-20', '09-22', '09-23', '09-24'],
+    2030: ['02-02', '02-03', '02-04', '05-09', '09-11', '09-12', '09-13']
+  };
+
+  const yearHolidays = lunarHolidays[year] || [];
+
+  return fixedHolidays.includes(date) || yearHolidays.includes(date);
+}
+
 async function loadPropertyListForStatus() {
   try {
     const properties = await apiCall('/properties');
@@ -96,6 +138,50 @@ async function loadPropertyListForStatus() {
   } catch (error) {
     console.error('Failed to load properties:', error);
   }
+}
+
+function showRoomStatusSkeleton() {
+  const container = document.getElementById('roomStatusContent');
+  if (!container) return;
+
+  const skeletonRows = Array(5).fill(0).map(() => `
+    <tr class="border-b">
+      <td class="sticky left-0 z-10 bg-white px-3 py-2 border-r-2 border-gray-300 min-w-[160px]">
+        <div class="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+        <div class="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+      </td>
+      ${Array(14).fill(0).map(() => `
+        <td class="px-2 py-2 border">
+          <div class="h-12 bg-gray-200 rounded animate-pulse"></div>
+        </td>
+      `).join('')}
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="overflow-x-auto">
+      <div class="inline-block min-w-full">
+        <table class="min-w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 min-w-[160px]">
+                <div class="h-4 bg-gray-300 rounded animate-pulse"></div>
+              </th>
+              ${Array(14).fill(0).map(() => `
+                <th class="px-2 py-3 text-center text-xs font-semibold border min-w-[120px]">
+                  <div class="h-4 bg-gray-300 rounded animate-pulse mb-1"></div>
+                  <div class="h-3 bg-gray-300 rounded animate-pulse"></div>
+                </th>
+              `).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${skeletonRows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 async function loadRoomStatusData() {
@@ -112,6 +198,10 @@ async function loadRoomStatusData() {
       showToast('시작일과 종료일을 선택해주세요.', 'error');
       return;
     }
+
+    // Show skeleton while loading
+    showRoomStatusSkeleton();
+
     // 숙소 목록 가져오기
     let properties = await apiCall('/properties');
 
@@ -195,17 +285,19 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
         <table class="min-w-full border-collapse">
         <thead>
           <tr class="bg-gray-50">
-            <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 w-40 max-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+            <th class="sticky left-0 z-20 bg-gray-50 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-r-2 border-gray-300 min-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
               객실
             </th>
             ${dates.map(date => {
               const d = new Date(date);
               const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
               const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              const isHoliday = isKoreanHoliday(date);
+              const isRed = isWeekend || isHoliday;
               return `
-                <th class="px-2 py-3 text-center text-xs font-semibold border ${isWeekend ? 'bg-blue-50 text-red-600' : 'text-gray-600'} min-w-[120px]">
+                <th class="px-2 py-3 text-center text-xs font-semibold border ${isRed ? 'bg-blue-50 text-red-600' : 'text-gray-600'} min-w-[120px]">
                   <div>${date.split('-')[1]}/${date.split('-')[2]}</div>
-                  <div class="text-xs ${isWeekend ? 'text-red-600 font-bold' : 'text-gray-500'}">${dayOfWeek}</div>
+                  <div class="text-xs ${isRed ? 'text-red-600 font-bold' : 'text-gray-500'}">${dayOfWeek}</div>
                 </th>
               `;
             }).join('')}
@@ -217,8 +309,8 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
 
             return `
               <tr class="border-b hover:bg-gray-50">
-                <td class="sticky left-0 z-10 bg-white px-3 py-2 border-r-2 border-gray-300 w-40 max-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  <div class="font-medium text-gray-900 text-sm leading-tight break-words">${room.name} #${room.unit_number}</div>
+                <td class="sticky left-0 z-10 bg-white px-3 py-2 border-r-2 border-gray-300 min-w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <div class="font-medium text-gray-900 text-sm leading-tight break-words">${room.name}${getRoomNumberDisplay(room)}</div>
                   <div class="text-xs text-gray-500 mt-1 break-words">${room.property_name}</div>
                 </td>
                 ${renderRoomRow(allocation, dates, room)}
@@ -511,6 +603,8 @@ async function showReservationDetail(reservationId) {
         </div>
 
         <form id="detailEditForm" onsubmit="saveReservationDetail(event, '${reservationId}')">
+          <input type="hidden" id="originalStatus" value="${reservation.status}">
+          <input type="hidden" id="originalRoomId" value="${reservation.room_id}">
           <div class="space-y-4">
             <div>
               <label class="block text-sm text-gray-600 mb-1">객실</label>
@@ -602,6 +696,11 @@ async function showReservationDetail(reservationId) {
 async function saveReservationDetail(event, reservationId) {
   event.preventDefault();
 
+  const originalStatus = document.getElementById('originalStatus').value;
+  const newStatus = document.getElementById('detailStatus').value;
+  const originalRoomId = document.getElementById('originalRoomId').value;
+  const newRoomId = document.getElementById('detailRoomId').value;
+
   const guestName = document.getElementById('detailGuestName').value.trim();
   const checkIn = document.getElementById('detailCheckIn').value;
   const checkOut = document.getElementById('detailCheckOut').value;
@@ -629,6 +728,14 @@ async function saveReservationDetail(event, reservationId) {
     return;
   }
 
+  // Check-in 확인 로직
+  if (newStatus === 'CHECKED_IN' && originalStatus !== 'CHECKED_IN') {
+    await showCheckInConfirmation(reservationId, originalRoomId, newRoomId, {
+      guestName, checkIn, checkOut, totalPrice, numberOfGuests
+    });
+    return;
+  }
+
   try {
     await apiCall('/reservations/update', {
       method: 'POST',
@@ -653,6 +760,157 @@ async function saveReservationDetail(event, reservationId) {
   } catch (error) {
     console.error('Failed to update reservation:', error);
     showToast(error.message || '예약 수정 실패', 'error');
+  }
+}
+
+async function showCheckInConfirmation(reservationId, originalRoomId, newRoomId, reservationData) {
+  try {
+    const properties = await apiCall('/properties');
+
+    // Get room info
+    let currentRoom = null;
+    let roomOptions = '';
+
+    properties.forEach(property => {
+      if (property.rooms && property.rooms.length > 0) {
+        property.rooms.forEach(room => {
+          if (room.id === newRoomId) {
+            currentRoom = { ...room, property_name: property.name };
+          }
+          let roomNumbersDisplay = '';
+          if (room.room_numbers && room.room_numbers.length > 0) {
+            roomNumbersDisplay = ` (${room.room_numbers.filter(n => n).join(', ')})`;
+          }
+          const roomDisplay = `${property.name} - ${room.name}${roomNumbersDisplay}`;
+          roomOptions += `<option value="${room.id}">${roomDisplay}</option>`;
+        });
+      }
+    });
+
+    let roomDisplay = '알 수 없음';
+    if (currentRoom) {
+      let roomNumbersDisplay = '';
+      if (currentRoom.room_numbers && currentRoom.room_numbers.length > 0) {
+        roomNumbersDisplay = ` (${currentRoom.room_numbers.filter(n => n).join(', ')})`;
+      }
+      roomDisplay = `${currentRoom.property_name} - ${currentRoom.name}${roomNumbersDisplay}`;
+    }
+
+    const confirmModal = document.createElement('div');
+    confirmModal.id = 'checkInConfirmModal';
+    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    confirmModal.innerHTML = `
+      <div class="bg-white rounded-lg p-6 md:p-8 max-w-md w-full mx-4">
+        <h3 class="text-lg font-bold mb-4">체크인 확인</h3>
+        <p class="mb-4">배정된 객실: <strong>${roomDisplay}</strong></p>
+        <p class="mb-6">고객이 이 객실에 입실하셨나요?</p>
+
+        <div class="space-y-3">
+          <button onclick="confirmCheckInSameRoom('${reservationId}', '${newRoomId}', ${JSON.stringify(reservationData).replace(/"/g, '&quot;')})"
+            class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            예, 이 객실에 입실했습니다
+          </button>
+
+          <div id="differentRoomSection" class="hidden">
+            <label class="block text-sm text-gray-600 mb-2">다른 객실 선택:</label>
+            <select id="differentRoomId" class="w-full px-3 py-2 border rounded-lg mb-2">
+              ${roomOptions}
+            </select>
+            <button onclick="confirmCheckInDifferentRoom('${reservationId}', ${JSON.stringify(reservationData).replace(/"/g, '&quot;')})"
+              class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              확인
+            </button>
+          </div>
+
+          <button onclick="toggleDifferentRoomSection()"
+            class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+            아니오, 다른 객실에 입실했습니다
+          </button>
+
+          <button onclick="closeCheckInConfirm()"
+            class="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">
+            취소
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(confirmModal);
+  } catch (error) {
+    console.error('Check-in confirmation error:', error);
+    showToast('체크인 확인 중 오류가 발생했습니다', 'error');
+  }
+}
+
+function toggleDifferentRoomSection() {
+  const section = document.getElementById('differentRoomSection');
+  section.classList.toggle('hidden');
+}
+
+async function confirmCheckInSameRoom(reservationId, roomId, reservationData) {
+  try {
+    await apiCall('/reservations/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: reservationId,
+        room_id: roomId,
+        guest_name: reservationData.guestName,
+        guest_email: document.getElementById('detailGuestEmail').value || null,
+        guest_phone: document.getElementById('detailGuestPhone').value || null,
+        check_in: reservationData.checkIn,
+        check_out: reservationData.checkOut,
+        number_of_guests: parseInt(reservationData.numberOfGuests),
+        total_price: parseFloat(reservationData.totalPrice),
+        channel: document.getElementById('detailChannel').value,
+        status: 'CHECKED_IN'
+      })
+    });
+
+    showToast('체크인이 완료되었습니다', 'success');
+    closeCheckInConfirm();
+    closeReservationDetail();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Check-in error:', error);
+    showToast(error.message || '체크인 처리 실패', 'error');
+  }
+}
+
+async function confirmCheckInDifferentRoom(reservationId, reservationData) {
+  const differentRoomId = document.getElementById('differentRoomId').value;
+
+  try {
+    await apiCall('/reservations/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: reservationId,
+        room_id: differentRoomId,
+        guest_name: reservationData.guestName,
+        guest_email: document.getElementById('detailGuestEmail').value || null,
+        guest_phone: document.getElementById('detailGuestPhone').value || null,
+        check_in: reservationData.checkIn,
+        check_out: reservationData.checkOut,
+        number_of_guests: parseInt(reservationData.numberOfGuests),
+        total_price: parseFloat(reservationData.totalPrice),
+        channel: document.getElementById('detailChannel').value,
+        status: 'CHECKED_IN'
+      })
+    });
+
+    showToast('체크인이 완료되었습니다', 'success');
+    closeCheckInConfirm();
+    closeReservationDetail();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Check-in error:', error);
+    showToast(error.message || '체크인 처리 실패', 'error');
+  }
+}
+
+function closeCheckInConfirm() {
+  const modal = document.getElementById('checkInConfirmModal');
+  if (modal) {
+    modal.remove();
   }
 }
 

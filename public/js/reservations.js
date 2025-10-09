@@ -582,8 +582,21 @@ async function viewReservationDetail(id) {
 }
 
 async function updateReservationStatus(id, status) {
-  showToast('예약 상태 업데이트 기능은 준비 중입니다.', 'error');
-  return;
+  try {
+    await apiCall('/reservations/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: id,
+        status: status
+      })
+    });
+
+    showToast('예약 상태가 업데이트되었습니다', 'success');
+    await loadReservations();
+  } catch (error) {
+    console.error('Failed to update reservation status:', error);
+    showToast(error.message || '예약 상태 업데이트 실패', 'error');
+  }
 }
 
 function showExcelUploadModal() {

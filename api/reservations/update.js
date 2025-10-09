@@ -5,7 +5,7 @@ const { requireApproved, supabase } = require('../_middleware');
  * PUT /api/reservations/update?id=xxx
  */
 module.exports = async (req, res) => {
-  if (req.method !== 'PUT') {
+  if (req.method !== 'PUT' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
   }
 
   const organizationId = authResult.organizationId;
-  const { id } = req.query;
+  const id = req.query.id || req.body.id;
 
   if (!id) {
     return res.status(400).json({ error: 'Reservation ID is required' });

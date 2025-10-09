@@ -245,7 +245,12 @@ function renderRoomRow(allocation, dates, room) {
     if (!reservation) {
       renderedDates.add(date);
       return `
-        <td class="px-2 py-2 border text-center bg-green-50 cursor-pointer hover:bg-green-100"
+        <td class="px-2 py-2 border text-center bg-green-50 cursor-pointer hover:bg-green-100 drop-zone"
+            data-room-id="${room.room_type_id}"
+            data-date="${date}"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event)"
             onclick="showQuickCreateReservation('${room.room_type_id}', '${date}')">
           <div class="text-xs text-green-700">예약가능</div>
         </td>
@@ -291,7 +296,15 @@ function renderRoomRow(allocation, dates, room) {
     }
 
     return `
-      <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor} cursor-pointer hover:opacity-80"
+      <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor} cursor-move hover:opacity-80 reservation-cell"
+          draggable="true"
+          data-reservation-id="${reservation.id}"
+          data-room-id="${reservation.room_id}"
+          data-check-in="${reservation.check_in}"
+          data-check-out="${reservation.check_out}"
+          data-guest-name="${reservation.guest_name}"
+          ondragstart="handleDragStart(event)"
+          ondragend="handleDragEnd(event)"
           onclick="showReservationDetail('${reservation.id}')">
         <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
         <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
@@ -731,6 +744,181 @@ function getStatusName(status) {
     'NO_SHOW': '노쇼'
   };
   return statusMap[status] || status;
+}
+
+// Drag and drop handlers
+let draggedReservation = null;
+
+function handleDragStart(event) {
+  const cell = event.currentTarget;
+  draggedReservation = {
+    id: cell.dataset.reservationId,
+    roomId: cell.dataset.roomId,
+    checkIn: cell.dataset.checkIn,
+    checkOut: cell.dataset.checkOut,
+    guestName: cell.dataset.guestName
+  };
+
+  cell.style.opacity = '0.5';
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/html', cell.innerHTML);
+
+  // Prevent click event when dragging
+  event.stopPropagation();
+}
+
+function handleDragEnd(event) {
+  event.currentTarget.style.opacity = '1';
+}
+
+function handleDragOver(event) {
+  if (event.preventDefault) {
+    event.preventDefault();
+  }
+
+  const dropZone = event.currentTarget;
+  if (dropZone.classList.contains('drop-zone')) {
+    dropZone.classList.add('bg-blue-100', 'border-blue-400');
+    dropZone.classList.remove('bg-green-50');
+  }
+
+  event.dataTransfer.dropEffect = 'move';
+  return false;
+}
+
+function handleDragLeave(event) {
+  const dropZone = event.currentTarget;
+  if (dropZone.classList.contains('drop-zone')) {
+    dropZone.classList.remove('bg-blue-100', 'border-blue-400');
+    dropZone.classList.add('bg-green-50');
+  }
+}
+
+async function handleDrop(event) {
+  if (event.stopPropagation) {
+    event.stopPropagation();
+  }
+
+  event.preventDefault();
+
+  const dropZone = event.currentTarget;
+  dropZone.classList.remove('bg-blue-100', 'border-blue-400');
+  dropZone.classList.add('bg-green-50');
+
+  if (!draggedReservation) {
+    return false;
+  }
+
+  const newRoomId = dropZone.dataset.roomId;
+  const newCheckInDate = dropZone.dataset.date;
+
+  // Calculate new checkout date (same duration)
+  const oldCheckIn = new Date(draggedReservation.checkIn);
+  const oldCheckOut = new Date(draggedReservation.checkOut);
+  const durationDays = Math.ceil((oldCheckOut - oldCheckIn) / (1000 * 60 * 60 * 24));
+
+  const newCheckOutDate = new Date(newCheckInDate);
+  newCheckOutDate.setDate(newCheckOutDate.getDate() + durationDays);
+
+  // Show confirmation modal
+  await showMoveConfirmation(
+    draggedReservation,
+    newRoomId,
+    newCheckInDate,
+    newCheckOutDate.toISOString().split('T')[0]
+  );
+
+  draggedReservation = null;
+  return false;
+}
+
+async function showMoveConfirmation(reservation, newRoomId, newCheckIn, newCheckOut) {
+  try {
+    // Get room info
+    const properties = await apiCall('/properties');
+    let oldRoomName = '';
+    let newRoomName = '';
+
+    for (const property of properties) {
+      if (property.rooms) {
+        const oldRoom = property.rooms.find(r => r.id === reservation.roomId);
+        const newRoom = property.rooms.find(r => r.id === newRoomId);
+
+        if (oldRoom) oldRoomName = `${property.name} - ${oldRoom.name}`;
+        if (newRoom) newRoomName = `${property.name} - ${newRoom.name}`;
+      }
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'moveConfirmModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
+        <h2 class="text-2xl font-bold mb-6">예약 이동 확인</h2>
+
+        <div class="mb-6">
+          <p class="text-lg mb-4"><strong>${reservation.guestName}</strong> 님의 예약을 이동하시겠습니까?</p>
+
+          <div class="bg-gray-50 p-4 rounded-lg space-y-3">
+            <div>
+              <p class="text-sm text-gray-600">현재 정보</p>
+              <p class="font-semibold">${oldRoomName}</p>
+              <p class="text-sm">${new Date(reservation.checkIn).toLocaleDateString('ko-KR')} ~ ${new Date(reservation.checkOut).toLocaleDateString('ko-KR')}</p>
+            </div>
+
+            <div class="border-t pt-3">
+              <p class="text-sm text-gray-600">변경될 정보</p>
+              <p class="font-semibold text-blue-600">${newRoomName}</p>
+              <p class="text-sm text-blue-600">${new Date(newCheckIn).toLocaleDateString('ko-KR')} ~ ${new Date(newCheckOut).toLocaleDateString('ko-KR')}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button onclick="closeMoveConfirm()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+            취소
+          </button>
+          <button onclick="confirmMove('${reservation.id}', '${newRoomId}', '${newCheckIn}', '${newCheckOut}')"
+                  class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            이동하기
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to show move confirmation:', error);
+    showToast('예약 이동 확인창을 열 수 없습니다', 'error');
+  }
+}
+
+function closeMoveConfirm() {
+  const modal = document.getElementById('moveConfirmModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function confirmMove(reservationId, newRoomId, newCheckIn, newCheckOut) {
+  try {
+    await apiCall(`/reservations/update`, {
+      method: 'POST',
+      body: JSON.stringify({
+        id: reservationId,
+        room_id: newRoomId,
+        check_in: newCheckIn,
+        check_out: newCheckOut
+      })
+    });
+
+    showToast('예약이 이동되었습니다', 'success');
+    closeMoveConfirm();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Failed to move reservation:', error);
+    showToast(error.message || '예약 이동 실패', 'error');
+  }
 }
 
 router.register('room-status', loadRoomStatus);

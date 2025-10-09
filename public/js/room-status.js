@@ -20,12 +20,12 @@ async function loadRoomStatus() {
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">시작일</label>
           <input type="date" id="statusStartDate" onchange="loadRoomStatusData()"
-            class="w-full px-3 py-2 border rounded-lg" value="${getToday()}">
+            class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm" value="${getToday()}">
         </div>
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">종료일</label>
           <input type="date" id="statusEndDate" onchange="loadRoomStatusData()"
-            class="w-full px-3 py-2 border rounded-lg" value="${getDateAfterDays(14)}">
+            class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm" value="${getDateAfterDays(14)}">
         </div>
         <div class="flex items-end">
           <button onclick="loadRoomStatusData()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
@@ -632,11 +632,11 @@ async function showReservationDetail(reservationId) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm text-gray-600 mb-1">체크인 *</label>
-                <input type="date" id="detailCheckIn" required value="${reservation.check_in}" class="w-full px-3 py-2 border rounded-lg">
+                <input type="date" id="detailCheckIn" required value="${reservation.check_in}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">체크아웃 *</label>
-                <input type="date" id="detailCheckOut" required value="${reservation.check_out}" class="w-full px-3 py-2 border rounded-lg">
+                <input type="date" id="detailCheckOut" required value="${reservation.check_out}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
               </div>
             </div>
 

@@ -48,12 +48,12 @@ async function loadReservations() {
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">체크인 시작</label>
           <input type="date" id="filterCheckInStart" onchange="applyFilters()"
-            class="w-full px-3 py-2 border rounded-lg text-sm">
+            class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
         </div>
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">체크인 종료</label>
           <input type="date" id="filterCheckInEnd" onchange="applyFilters()"
-            class="w-full px-3 py-2 border rounded-lg text-sm">
+            class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
         </div>
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">최소 가격</label>
@@ -197,12 +197,12 @@ async function loadReservations() {
 
             <div>
               <label class="block text-gray-700 text-sm font-bold mb-2">체크인 *</label>
-              <input type="date" id="editCheckIn" required class="w-full px-3 py-2 border rounded-lg">
+              <input type="date" id="editCheckIn" required class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
             </div>
 
             <div>
               <label class="block text-gray-700 text-sm font-bold mb-2">체크아웃 *</label>
-              <input type="date" id="editCheckOut" required class="w-full px-3 py-2 border rounded-lg">
+              <input type="date" id="editCheckOut" required class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
             </div>
 
             <div>
@@ -281,12 +281,12 @@ async function loadReservations() {
 
             <div>
               <label class="block text-gray-700 text-sm font-bold mb-2">체크인 *</label>
-              <input type="date" id="createCheckIn" required class="w-full px-3 py-2 border rounded-lg">
+              <input type="date" id="createCheckIn" required class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
             </div>
 
             <div>
               <label class="block text-gray-700 text-sm font-bold mb-2">체크아웃 *</label>
-              <input type="date" id="createCheckOut" required class="w-full px-3 py-2 border rounded-lg">
+              <input type="date" id="createCheckOut" required class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
             </div>
 
             <div>

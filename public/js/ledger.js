@@ -714,7 +714,7 @@ function showAddSupplyModal(yearMonth) {
           <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2">구매일 <span class="text-red-500">*</span></label>
             <input type="date" id="supply-date" required
-              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
           <div class="mb-4">

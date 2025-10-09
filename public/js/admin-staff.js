@@ -117,7 +117,7 @@ async function loadTasksTab() {
             id="taskDatePicker"
             value="${today}"
             onchange="changeTaskDate(0)"
-            class="px-3 py-1 border border-gray-300 rounded"
+            class="max-w-full px-2 py-1 sm:px-3 border border-gray-300 rounded text-sm"
           >
           <button onclick="changeTaskDate(1)" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
             다음 →
@@ -291,7 +291,7 @@ function showAddTaskModal() {
           <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2">날짜</label>
             <input type="date" id="task-date" value="\${selectedDate}"
-              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
           <div class="mb-6">

@@ -23,7 +23,7 @@ async function loadAdminCleaning() {
           id="cleaningDatePicker"
           value="${today}"
           onchange="changeCleaningDate(0)"
-          class="px-2 md:px-3 py-1 border border-gray-300 rounded text-sm md:text-base flex-shrink-0"
+          class="max-w-full px-2 md:px-3 py-1 border border-gray-300 rounded text-sm md:text-base flex-shrink-0"
         >
         <button onclick="changeCleaningDate(1)" class="px-2 md:px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm md:text-base">
           <span class="hidden sm:inline">다음 →</span>

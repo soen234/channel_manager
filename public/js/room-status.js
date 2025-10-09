@@ -251,7 +251,8 @@ function renderRoomRow(allocation, dates, room) {
             ondragover="handleDragOver(event)"
             ondragleave="handleDragLeave(event)"
             ondrop="handleDrop(event)"
-            onclick="showQuickCreateReservation('${room.room_type_id}', '${date}')">
+            ontouchend="handleDropZoneTap(event)"
+            onclick="handleDropZoneClick(event, '${room.room_type_id}', '${date}')">
           <div class="text-xs text-green-700">예약가능</div>
         </td>
       `;
@@ -305,6 +306,9 @@ function renderRoomRow(allocation, dates, room) {
           data-guest-name="${reservation.guest_name}"
           ondragstart="handleDragStart(event)"
           ondragend="handleDragEnd(event)"
+          ontouchstart="handleTouchStart(event)"
+          ontouchmove="handleTouchMove(event)"
+          ontouchend="handleTouchEnd(event)"
           onclick="showReservationDetail('${reservation.id}')">
         <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
         <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
@@ -479,14 +483,26 @@ function calculateAllocationScore(unitAllocation, checkInDate, checkOutDate, dat
 async function showReservationDetail(reservationId) {
   try {
     const reservation = await apiCall(`/reservations/${reservationId}`);
+    const properties = await apiCall('/properties');
+
+    // Build room options
+    let roomOptions = '';
+    properties.forEach(property => {
+      if (property.rooms && property.rooms.length > 0) {
+        property.rooms.forEach(room => {
+          const selected = room.id === reservation.room_id ? 'selected' : '';
+          roomOptions += `<option value="${room.id}" ${selected}>${property.name} - ${room.name}</option>`;
+        });
+      }
+    });
 
     const modal = document.createElement('div');
     modal.id = 'reservationDetailModal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
-      <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="bg-white rounded-lg p-6 md:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-start mb-6">
-          <h2 class="text-2xl font-bold">예약 상세 정보</h2>
+          <h2 class="text-xl md:text-2xl font-bold">예약 상세 정보</h2>
           <button onclick="closeReservationDetail()" class="text-gray-500 hover:text-gray-700">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -494,78 +510,85 @@ async function showReservationDetail(reservationId) {
           </button>
         </div>
 
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
+        <form id="detailEditForm" onsubmit="saveReservationDetail(event, '${reservationId}')">
+          <div class="space-y-4">
             <div>
-              <p class="text-sm text-gray-600">숙소</p>
-              <p class="font-semibold">${reservation.rooms?.properties?.name || '-'}</p>
+              <label class="block text-sm text-gray-600 mb-1">객실</label>
+              <select id="detailRoomId" required class="w-full px-3 py-2 border rounded-lg">
+                ${roomOptions}
+              </select>
             </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">투숙객명 *</label>
+                <input type="text" id="detailGuestName" required value="${reservation.guest_name}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">연락처</label>
+                <input type="tel" id="detailGuestPhone" value="${reservation.guest_phone || ''}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+            </div>
+
             <div>
-              <p class="text-sm text-gray-600">객실</p>
-              <p class="font-semibold">${reservation.rooms?.name || '-'}</p>
+              <label class="block text-sm text-gray-600 mb-1">이메일</label>
+              <input type="email" id="detailGuestEmail" value="${reservation.guest_email || ''}" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">체크인 *</label>
+                <input type="date" id="detailCheckIn" required value="${reservation.check_in}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">체크아웃 *</label>
+                <input type="date" id="detailCheckOut" required value="${reservation.check_out}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">인원 *</label>
+                <input type="number" id="detailNumberOfGuests" required min="1" value="${reservation.number_of_guests}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">총 금액 *</label>
+                <input type="number" id="detailTotalPrice" required step="0.01" value="${reservation.total_price}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">채널</label>
+                <select id="detailChannel" class="w-full px-3 py-2 border rounded-lg">
+                  <option value="DIRECT" ${reservation.channel === 'DIRECT' ? 'selected' : ''}>직접 예약</option>
+                  <option value="BOOKING_COM" ${reservation.channel === 'BOOKING_COM' ? 'selected' : ''}>Booking.com</option>
+                  <option value="YANOLJA" ${reservation.channel === 'YANOLJA' ? 'selected' : ''}>야놀자</option>
+                  <option value="AIRBNB" ${reservation.channel === 'AIRBNB' ? 'selected' : ''}>Airbnb</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">상태</label>
+                <select id="detailStatus" class="w-full px-3 py-2 border rounded-lg">
+                  <option value="CONFIRMED" ${reservation.status === 'CONFIRMED' ? 'selected' : ''}>확정</option>
+                  <option value="CHECKED_IN" ${reservation.status === 'CHECKED_IN' ? 'selected' : ''}>체크인</option>
+                  <option value="CHECKED_OUT" ${reservation.status === 'CHECKED_OUT' ? 'selected' : ''}>체크아웃</option>
+                  <option value="CANCELLED" ${reservation.status === 'CANCELLED' ? 'selected' : ''}>취소</option>
+                  <option value="NO_SHOW" ${reservation.status === 'NO_SHOW' ? 'selected' : ''}>노쇼</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-gray-600">투숙객명</p>
-              <p class="font-semibold">${reservation.guest_name}</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-600">연락처</p>
-              <p class="font-semibold">${reservation.guest_phone || '-'}</p>
-            </div>
+          <div class="mt-6 flex flex-col sm:flex-row justify-end gap-3">
+            <button type="button" onclick="closeReservationDetail()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+              취소
+            </button>
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              저장
+            </button>
           </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-gray-600">체크인</p>
-              <p class="font-semibold">${new Date(reservation.check_in).toLocaleDateString('ko-KR')}</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-600">체크아웃</p>
-              <p class="font-semibold">${new Date(reservation.check_out).toLocaleDateString('ko-KR')}</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-gray-600">인원</p>
-              <p class="font-semibold">${reservation.number_of_guests}명</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-600">총 금액</p>
-              <p class="font-semibold">${parseFloat(reservation.total_price).toLocaleString()}원</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-gray-600">채널</p>
-              <p class="font-semibold">${getChannelName(reservation.channel)}</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-600">상태</p>
-              <p class="font-semibold">${getStatusName(reservation.status)}</p>
-            </div>
-          </div>
-
-          ${reservation.guest_email ? `
-          <div>
-            <p class="text-sm text-gray-600">이메일</p>
-            <p class="font-semibold">${reservation.guest_email}</p>
-          </div>
-          ` : ''}
-        </div>
-
-        <div class="mt-6 flex justify-end space-x-3">
-          <button onclick="closeReservationDetail()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
-            닫기
-          </button>
-          <button onclick="navigateToReservations()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            예약 관리로 이동
-          </button>
-        </div>
+        </form>
       </div>
     `;
 
@@ -573,6 +596,63 @@ async function showReservationDetail(reservationId) {
   } catch (error) {
     console.error('Failed to load reservation detail:', error);
     showToast('예약 정보를 불러올 수 없습니다', 'error');
+  }
+}
+
+async function saveReservationDetail(event, reservationId) {
+  event.preventDefault();
+
+  const guestName = document.getElementById('detailGuestName').value.trim();
+  const checkIn = document.getElementById('detailCheckIn').value;
+  const checkOut = document.getElementById('detailCheckOut').value;
+  const totalPrice = document.getElementById('detailTotalPrice').value;
+  const numberOfGuests = document.getElementById('detailNumberOfGuests').value;
+
+  // Validation
+  if (!guestName) {
+    showToast('투숙객명을 입력해주세요', 'error');
+    return;
+  }
+
+  if (new Date(checkIn) >= new Date(checkOut)) {
+    showToast('체크아웃 날짜는 체크인 날짜보다 뒤여야 합니다', 'error');
+    return;
+  }
+
+  if (!totalPrice || parseFloat(totalPrice) <= 0) {
+    showToast('유효한 금액을 입력해주세요', 'error');
+    return;
+  }
+
+  if (!numberOfGuests || parseInt(numberOfGuests) < 1) {
+    showToast('투숙 인원은 최소 1명 이상이어야 합니다', 'error');
+    return;
+  }
+
+  try {
+    await apiCall('/reservations/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: reservationId,
+        room_id: document.getElementById('detailRoomId').value,
+        guest_name: guestName,
+        guest_email: document.getElementById('detailGuestEmail').value || null,
+        guest_phone: document.getElementById('detailGuestPhone').value || null,
+        check_in: checkIn,
+        check_out: checkOut,
+        number_of_guests: parseInt(numberOfGuests),
+        total_price: parseFloat(totalPrice),
+        channel: document.getElementById('detailChannel').value,
+        status: document.getElementById('detailStatus').value
+      })
+    });
+
+    showToast('예약이 수정되었습니다', 'success');
+    closeReservationDetail();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Failed to update reservation:', error);
+    showToast(error.message || '예약 수정 실패', 'error');
   }
 }
 
@@ -748,6 +828,8 @@ function getStatusName(status) {
 
 // Drag and drop handlers
 let draggedReservation = null;
+let touchStartTime = 0;
+let touchMoved = false;
 
 function handleDragStart(event) {
   const cell = event.currentTarget;
@@ -760,11 +842,117 @@ function handleDragStart(event) {
   };
 
   cell.style.opacity = '0.5';
-  event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/html', cell.innerHTML);
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/html', cell.innerHTML);
+  }
 
   // Prevent click event when dragging
   event.stopPropagation();
+}
+
+// Touch event handlers for mobile
+function handleTouchStart(event) {
+  touchStartTime = Date.now();
+  touchMoved = false;
+
+  const cell = event.currentTarget;
+
+  // Long press detection for drag initiation
+  setTimeout(() => {
+    if (!touchMoved && Date.now() - touchStartTime >= 500) {
+      // Start drag mode
+      draggedReservation = {
+        id: cell.dataset.reservationId,
+        roomId: cell.dataset.roomId,
+        checkIn: cell.dataset.checkIn,
+        checkOut: cell.dataset.checkOut,
+        guestName: cell.dataset.guestName
+      };
+
+      cell.style.opacity = '0.5';
+      cell.style.transform = 'scale(0.95)';
+
+      // Visual feedback
+      showToast('예약을 이동할 위치를 선택하세요', 'info');
+
+      // Add drop-mode class to all drop zones
+      document.querySelectorAll('.drop-zone').forEach(zone => {
+        zone.classList.add('bg-yellow-100', 'border-2', 'border-yellow-400');
+      });
+
+      event.preventDefault();
+    }
+  }, 500);
+}
+
+function handleTouchMove(event) {
+  touchMoved = true;
+}
+
+function handleTouchEnd(event) {
+  const cell = event.currentTarget;
+
+  if (draggedReservation && Date.now() - touchStartTime >= 500) {
+    // Dragging mode - wait for drop zone tap
+    event.preventDefault();
+  } else {
+    // Normal click
+    cell.style.opacity = '1';
+    cell.style.transform = 'scale(1)';
+  }
+}
+
+function handleDropZoneClick(event, roomId, date) {
+  if (draggedReservation) {
+    // In drag mode, handle drop
+    handleDropZoneTap(event);
+  } else {
+    // Normal click, show quick create
+    showQuickCreateReservation(roomId, date);
+  }
+}
+
+function handleDropZoneTap(event) {
+  if (!draggedReservation) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const dropZone = event.currentTarget;
+  const newRoomId = dropZone.dataset.roomId;
+  const newCheckInDate = dropZone.dataset.date;
+
+  // Calculate new checkout date
+  const oldCheckIn = new Date(draggedReservation.checkIn);
+  const oldCheckOut = new Date(draggedReservation.checkOut);
+  const durationDays = Math.ceil((oldCheckOut - oldCheckIn) / (1000 * 60 * 60 * 24));
+
+  const newCheckOutDate = new Date(newCheckInDate);
+  newCheckOutDate.setDate(newCheckOutDate.getDate() + durationDays);
+
+  // Clear visual feedback
+  document.querySelectorAll('.drop-zone').forEach(zone => {
+    zone.classList.remove('bg-yellow-100', 'border-2', 'border-yellow-400');
+  });
+
+  document.querySelectorAll('.reservation-cell').forEach(cell => {
+    cell.style.opacity = '1';
+    cell.style.transform = 'scale(1)';
+  });
+
+  // Show confirmation
+  showMoveConfirmation(
+    draggedReservation,
+    newRoomId,
+    newCheckInDate,
+    newCheckOutDate.toISOString().split('T')[0]
+  );
+
+  draggedReservation = null;
 }
 
 function handleDragEnd(event) {

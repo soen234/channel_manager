@@ -268,6 +268,25 @@ function renderLedgerTable(reservations, properties, year, month) {
     : 0;
 
   container.innerHTML = `
+    <!-- 예약율 요약 -->
+    <div class="mb-4 md:mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+        <div class="text-sm text-purple-600 font-semibold">도미토리 예약율</div>
+        <div class="text-2xl font-bold text-purple-700">${dormOccupancyRate}%</div>
+        <div class="text-xs text-purple-500 mt-1">${dormRoomCount}개 객실 × ${daysInMonth}일</div>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div class="text-sm text-green-600 font-semibold">일반객실 예약율</div>
+        <div class="text-2xl font-bold text-green-700">${nonDormOccupancyRate}%</div>
+        <div class="text-xs text-green-500 mt-1">${nonDormRoomCount}개 객실 × ${daysInMonth}일</div>
+      </div>
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="text-sm text-blue-600 font-semibold">전체 예약율</div>
+        <div class="text-2xl font-bold text-blue-700">${totalOccupancyRate}%</div>
+        <div class="text-xs text-blue-500 mt-1">${totalRoomCount}개 객실 × ${daysInMonth}일</div>
+      </div>
+    </div>
+
     <div class="overflow-x-auto">
       <table class="min-w-full border-collapse text-sm">
         <thead class="bg-gray-50 sticky top-0">
@@ -289,6 +308,22 @@ function renderLedgerTable(reservations, properties, year, month) {
           </tr>
         </thead>
         <tbody>
+          <tr class="bg-gray-100 font-bold">
+            <td class="border px-3 py-2">합계</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalDormRevenue)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalNonDormRevenue)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.BOOKING_COM)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.YANOLJA)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.AIRBNB)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.DIRECT)}</td>
+            <td class="border px-3 py-2 text-right text-purple-700 bg-purple-50">${formatCurrency(totalPaymentMethods.platform)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.card)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.transfer)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.cash)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.paypal)}</td>
+            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.toss)}</td>
+            <td class="border px-3 py-2 text-right text-lg text-blue-700 bg-blue-100">${formatCurrency(totalDormRevenue + totalNonDormRevenue)}</td>
+          </tr>
           ${dates.map(day => {
             const stats = dailyStats[day];
             const dayTotal = stats.dormRevenue + stats.nonDormRevenue;
@@ -317,43 +352,8 @@ function renderLedgerTable(reservations, properties, year, month) {
               </tr>
             `;
           }).join('')}
-          <tr class="bg-gray-100 font-bold">
-            <td class="border px-3 py-2">합계</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalDormRevenue)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalNonDormRevenue)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.BOOKING_COM)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.YANOLJA)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.AIRBNB)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalChannels.DIRECT)}</td>
-            <td class="border px-3 py-2 text-right text-purple-700 bg-purple-50">${formatCurrency(totalPaymentMethods.platform)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.card)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.transfer)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.cash)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.paypal)}</td>
-            <td class="border px-3 py-2 text-right text-blue-700">${formatCurrency(totalPaymentMethods.toss)}</td>
-            <td class="border px-3 py-2 text-right text-lg text-blue-700 bg-blue-100">${formatCurrency(totalDormRevenue + totalNonDormRevenue)}</td>
-          </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- 예약율 요약 -->
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <div class="text-sm text-purple-600 font-semibold">도미토리 예약율</div>
-        <div class="text-2xl font-bold text-purple-700">${dormOccupancyRate}%</div>
-        <div class="text-xs text-purple-500 mt-1">${dormRoomCount}개 객실 × ${daysInMonth}일</div>
-      </div>
-      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div class="text-sm text-green-600 font-semibold">일반객실 예약율</div>
-        <div class="text-2xl font-bold text-green-700">${nonDormOccupancyRate}%</div>
-        <div class="text-xs text-green-500 mt-1">${nonDormRoomCount}개 객실 × ${daysInMonth}일</div>
-      </div>
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div class="text-sm text-blue-600 font-semibold">전체 예약율</div>
-        <div class="text-2xl font-bold text-blue-700">${totalOccupancyRate}%</div>
-        <div class="text-xs text-blue-500 mt-1">${totalRoomCount}개 객실 × ${daysInMonth}일</div>
-      </div>
     </div>
   `;
 }

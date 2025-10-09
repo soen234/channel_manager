@@ -3,13 +3,13 @@ async function loadChannels() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">채널 연동 관리</h1>
-      <p class="text-gray-600">예약 채널 연동 정보를 관리합니다</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">채널 연동 관리</h1>
+      <p class="text-sm md:text-base text-gray-600">예약 채널 연동 정보를 관리합니다</p>
     </div>
 
     <!-- 채널 카드 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
       <!-- Booking.com -->
       <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-t-4 border-blue-600">
         <div class="flex items-center justify-between mb-4">

@@ -3,9 +3,9 @@ async function loadInventory() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">재고/요금 관리</h1>
-      <p class="text-gray-600">객실별 재고 및 요금을 관리합니다</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">재고/요금 관리</h1>
+      <p class="text-sm md:text-base text-gray-600">객실별 재고 및 요금을 관리합니다</p>
     </div>
 
     <!-- 객실 선택 -->

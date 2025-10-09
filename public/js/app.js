@@ -145,13 +145,13 @@ async function loadDashboard() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">대시보드</h1>
-      <p class="text-gray-600">채널매니저 통합 관리 시스템</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">대시보드</h1>
+      <p class="text-sm md:text-base text-gray-600">채널매니저 통합 관리 시스템</p>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
       <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div class="flex items-center justify-between">
           <div>
@@ -209,7 +209,7 @@ async function loadDashboard() {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
       <!-- Recent Reservations -->
       <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h2 class="text-xl font-bold mb-4">최근 예약</h2>
@@ -264,7 +264,7 @@ async function loadDashboard() {
     </div>
 
     <!-- Quick Actions -->
-    <div class="mt-6 bg-white rounded-lg shadow-md p-6">
+    <div class="mt-4 md:mt-6 bg-white rounded-lg shadow-md p-4 md:p-6">
       <h2 class="text-xl font-bold mb-4">빠른 작업</h2>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <button onclick="syncAll()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition">

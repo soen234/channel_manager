@@ -1459,8 +1459,28 @@ async function showCreateReservationModal() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    document.getElementById('createCheckIn').value = today.toISOString().split('T')[0];
-    document.getElementById('createCheckOut').value = tomorrow.toISOString().split('T')[0];
+    const checkInInput = document.getElementById('createCheckIn');
+    const checkOutInput = document.getElementById('createCheckOut');
+
+    // Set min date to today
+    checkInInput.min = today.toISOString().split('T')[0];
+    checkOutInput.min = tomorrow.toISOString().split('T')[0];
+
+    checkInInput.value = today.toISOString().split('T')[0];
+    checkOutInput.value = tomorrow.toISOString().split('T')[0];
+
+    // Add date change listeners for validation
+    checkInInput.addEventListener('change', function() {
+      const checkIn = new Date(this.value);
+      const nextDay = new Date(checkIn);
+      nextDay.setDate(nextDay.getDate() + 1);
+      checkOutInput.min = nextDay.toISOString().split('T')[0];
+
+      // If check-out is before new minimum, update it
+      if (checkOutInput.value && new Date(checkOutInput.value) <= checkIn) {
+        checkOutInput.value = nextDay.toISOString().split('T')[0];
+      }
+    });
 
     // Show modal
     document.getElementById('createReservationModal').classList.remove('hidden');

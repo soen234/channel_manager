@@ -368,7 +368,7 @@ function renderExpensesForm(yearMonth) {
   if (!container) return;
 
   container.innerHTML = `
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <h3 class="text-xl font-bold mb-4 text-gray-800">월별 고정 비용</h3>
       <p class="text-sm text-gray-600 mb-6">아래 항목들을 입력하면 자동으로 집계됩니다.</p>
 
@@ -451,7 +451,7 @@ function renderExpensesForm(yearMonth) {
       </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mt-4 md:mt-6">
       <h3 class="text-xl font-bold mb-4 text-gray-800">수수료 설정</h3>
       <p class="text-sm text-gray-600 mb-6">채널별 수수료율 및 기타 수수료를 설정합니다.</p>
 
@@ -494,7 +494,7 @@ function renderExpensesForm(yearMonth) {
     </div>
 
     <!-- 기타 비용 (비품 구매 등) -->
-    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mt-4 md:mt-6">
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="text-xl font-bold text-gray-800">기타 비용</h3>
@@ -946,7 +946,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
   container.innerHTML = `
     <div class="space-y-6">
       <!-- 주요 지표 -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h3 class="text-xl font-bold mb-4 text-gray-800">${year}년 ${month}월 월간 요약</h3>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -971,7 +971,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
       </div>
 
       <!-- 비용 상세 내역 -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h3 class="text-xl font-bold mb-4 text-gray-800">비용 상세 내역</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="border rounded-lg p-4 bg-gray-50">
@@ -998,7 +998,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
       </div>
 
       <!-- 매출 분석 -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h4 class="text-lg font-bold mb-4 text-gray-800">매출 분석</h4>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1043,7 +1043,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
       </div>
 
       <!-- 비용 분석 -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h4 class="text-lg font-bold mb-4 text-gray-800">비용 분석</h4>
 
         <div class="space-y-3">
@@ -1069,7 +1069,7 @@ function renderMonthlySummary(reservations, properties, year, month, yearMonth) 
       </div>
 
       <!-- 예약율 현황 -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h4 class="text-lg font-bold mb-4 text-gray-800">예약율 현황</h4>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

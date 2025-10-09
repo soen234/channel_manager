@@ -9,7 +9,7 @@ async function loadInventory() {
     </div>
 
     <!-- 객실 선택 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">숙소 선택</label>
@@ -32,7 +32,7 @@ async function loadInventory() {
     </div>
 
     <!-- 재고/요금 테이블 -->
-    <div id="inventoryContent" class="bg-white rounded-lg shadow-md p-6">
+    <div id="inventoryContent" class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <div class="text-center py-8 text-gray-500">
         숙소와 객실을 선택하세요
       </div>

@@ -152,7 +152,7 @@ async function loadDashboard() {
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm">오늘 체크인</p>
@@ -166,7 +166,7 @@ async function loadDashboard() {
         </div>
       </div>
 
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm">오늘 체크아웃</p>
@@ -180,7 +180,7 @@ async function loadDashboard() {
         </div>
       </div>
 
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm">다음달 예약</p>
@@ -194,7 +194,7 @@ async function loadDashboard() {
         </div>
       </div>
 
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm">전체 숙소</p>
@@ -211,7 +211,7 @@ async function loadDashboard() {
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Recent Reservations -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h2 class="text-xl font-bold mb-4">최근 예약</h2>
         <div class="overflow-x-auto">
           <table class="min-w-full">
@@ -233,7 +233,7 @@ async function loadDashboard() {
       </div>
 
       <!-- Channel Stats -->
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h2 class="text-xl font-bold mb-4">채널별 예약 현황</h2>
         <div class="space-y-4">
           <div class="flex items-center justify-between p-4 bg-blue-50 rounded">

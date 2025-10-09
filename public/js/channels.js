@@ -11,7 +11,7 @@ async function loadChannels() {
     <!-- 채널 카드 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
       <!-- Booking.com -->
-      <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-600">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-t-4 border-blue-600">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
@@ -36,7 +36,7 @@ async function loadChannels() {
       </div>
 
       <!-- 야놀자 -->
-      <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-green-600">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-t-4 border-green-600">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
@@ -61,7 +61,7 @@ async function loadChannels() {
       </div>
 
       <!-- Airbnb -->
-      <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-red-600">
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-t-4 border-red-600">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
             <div class="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
@@ -87,7 +87,7 @@ async function loadChannels() {
     </div>
 
     <!-- 연동된 숙소 목록 -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <h2 class="text-xl font-bold mb-4">연동된 숙소</h2>
       <div id="channelMappingsList">
         <div class="text-center py-8 text-gray-500">로딩중...</div>

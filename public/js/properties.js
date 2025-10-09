@@ -13,7 +13,7 @@ async function loadProperties() {
       </button>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <div id="propertiesList" class="space-y-4">
         <div class="text-center py-8 text-gray-500">로딩중...</div>
       </div>

@@ -3,13 +3,13 @@ async function loadRoomStatus() {
   const container = document.getElementById('mainContent');
 
   container.innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">객실현황</h1>
-      <p class="text-gray-600">날짜별 객실 예약 현황을 확인합니다</p>
+    <div class="mb-4 md:mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-800">객실현황</h1>
+      <p class="text-sm md:text-base text-gray-600">날짜별 객실 예약 현황을 확인합니다</p>
     </div>
 
     <!-- 필터 -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">숙소 선택</label>
@@ -36,7 +36,7 @@ async function loadRoomStatus() {
     </div>
 
     <!-- 객실현황 테이블 -->
-    <div id="roomStatusContent" class="bg-white rounded-lg shadow-md py-6">
+    <div id="roomStatusContent" class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <div class="text-center py-8 text-gray-500">
         숙소와 날짜를 선택하세요
       </div>

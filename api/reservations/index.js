@@ -33,8 +33,12 @@ module.exports = async (req, res) => {
 
     if (channel) query = query.eq('channel', channel);
     if (status) query = query.eq('status', status);
-    if (startDate) query = query.gte('check_in', startDate);
+
+    // Include reservations that overlap with the date range
+    // A reservation overlaps if: check_out > startDate AND check_in <= endDate
+    if (startDate) query = query.gte('check_out', startDate);
     if (endDate) query = query.lte('check_in', endDate);
+
     if (limit) query = query.limit(parseInt(limit));
 
     const { data: reservations, error } = await query;

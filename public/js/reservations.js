@@ -664,6 +664,7 @@ async function uploadExcelFile() {
     const BATCH_SIZE = 20;
     let totalCreated = 0;
     let totalUpdated = 0;
+    let totalSkipped = 0;
     let totalErrors = 0;
     const allErrorDetails = [];
 
@@ -678,7 +679,7 @@ async function uploadExcelFile() {
       progressBar.style.width = `${progress}%`;
       statusText.innerHTML = `
         <div>업로드 중: ${uploadedCount}/${totalCount} (배치 ${currentBatch}/${totalBatches})</div>
-        <div class="text-sm text-gray-600 mt-1">생성: ${totalCreated}, 업데이트: ${totalUpdated}, 오류: ${totalErrors}</div>
+        <div class="text-sm text-gray-600 mt-1">생성: ${totalCreated}, 업데이트: ${totalUpdated}, 건너뜀: ${totalSkipped}, 오류: ${totalErrors}</div>
       `;
 
       try {
@@ -689,6 +690,7 @@ async function uploadExcelFile() {
 
         totalCreated += result.created || 0;
         totalUpdated += result.updated || 0;
+        totalSkipped += result.skipped || 0;
         totalErrors += result.errors || 0;
 
         if (result.errorDetails && result.errorDetails.length > 0) {
@@ -712,10 +714,13 @@ async function uploadExcelFile() {
     progressBar.style.width = '100%';
     statusText.innerHTML = `
       <div class="font-bold text-green-600">완료!</div>
-      <div class="text-sm mt-1">생성: ${totalCreated}, 업데이트: ${totalUpdated}, 오류: ${totalErrors}</div>
+      <div class="text-sm mt-1">생성: ${totalCreated}, 업데이트: ${totalUpdated}, 건너뜀: ${totalSkipped}, 오류: ${totalErrors}</div>
     `;
 
     let message = `업로드 완료! 생성: ${totalCreated}건, 업데이트: ${totalUpdated}건`;
+    if (totalSkipped > 0) {
+      message += `, 건너뜀: ${totalSkipped}건`;
+    }
     if (totalErrors > 0) {
       message += `, 오류: ${totalErrors}건`;
     }
@@ -918,7 +923,7 @@ async function validateAndTransformReservations(data) {
     }
   });
 
-  // If there are missing rooms, offer to create them
+  // If there are missing rooms, offer to map or create them
   if (missingRooms.size > 0) {
     const result = await showMissingRoomsDialog(Array.from(missingRooms), properties);
 
@@ -939,56 +944,29 @@ async function validateAndTransformReservations(data) {
       showToast(`${skippedCount}개 예약이 누락된 객실로 인해 제외됩니다.`, 'warning');
 
       return filteredReservations;
-    } else if (result.created) {
-      // Rooms were created - need to re-validate with new rooms
-      // Reload properties to get newly created rooms
-      const updatedProperties = await apiCall('/properties');
+    } else if (result.mappings) {
+      // User provided mappings (either to existing rooms or newly created ones)
+      const mappings = result.mappings;
 
-      // Rebuild room maps with new rooms
-      const roomMap = {};
-      const roomTypeMap = {};
-
-      updatedProperties.forEach(property => {
-        if (property.rooms) {
-          property.rooms.forEach(room => {
-            roomMap[room.name] = room.id;
-            roomMap[room.name.replace(/\s+/g, '')] = room.id;
-            const roomType = room.type || room.name;
-            if (!roomTypeMap[roomType]) {
-              roomTypeMap[roomType] = room.id;
-            }
-            roomTypeMap[roomType.replace(/\s+/g, '')] = room.id;
-          });
-        }
-      });
-
-      // Re-assign room_ids to previously missing reservations
-      const stillMissing = [];
+      // Apply mappings to reservations
       validReservations.forEach(res => {
-        if (!res.room_id) {
-          // Try to find room ID with updated map
-          const roomName = res._originalRoomName;
-          let roomId = roomMap[roomName];
-          if (!roomId) {
-            roomId = roomMap[roomName.replace(/\s+/g, '')];
-          }
-          if (!roomId) {
-            roomId = roomTypeMap[roomName] || roomTypeMap[roomName.replace(/\s+/g, '')];
-          }
-
-          if (roomId) {
-            res.room_id = roomId;
-          } else {
-            stillMissing.push(roomName);
+        if (!res.room_id && res._originalRoomName) {
+          const mappedRoomId = mappings[res._originalRoomName];
+          if (mappedRoomId) {
+            res.room_id = mappedRoomId;
           }
         }
       });
 
+      // Check if any reservations still don't have room_id
+      const stillMissing = validReservations.filter(res => !res.room_id);
       if (stillMissing.length > 0) {
-        throw new Error(`일부 객실 생성에 실패했습니다: ${stillMissing.join(', ')}`);
+        const missingRoomNames = [...new Set(stillMissing.map(res => res._originalRoomName))];
+        throw new Error(`일부 객실 매핑에 실패했습니다: ${missingRoomNames.join(', ')}`);
       }
 
-      showToast('객실이 생성되었습니다. 업로드를 계속 진행합니다.', 'success');
+      const mappedCount = Object.keys(mappings).length;
+      showToast(`${mappedCount}개 객실이 매핑되었습니다. 업로드를 계속 진행합니다.`, 'success');
       return validReservations;
     }
   }
@@ -1146,51 +1124,143 @@ function parseExcelDate(value) {
   throw new Error('잘못된 날짜 형식');
 }
 
+// Calculate string similarity (0-100%)
+function calculateSimilarity(str1, str2) {
+  const s1 = str1.toLowerCase().replace(/\s+/g, '');
+  const s2 = str2.toLowerCase().replace(/\s+/g, '');
+
+  // Exact match (ignoring spaces)
+  if (s1 === s2) return 100;
+
+  // Contains match
+  if (s1.includes(s2) || s2.includes(s1)) return 80;
+
+  // Levenshtein distance
+  const matrix = [];
+  for (let i = 0; i <= s2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= s1.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2.charAt(i-1) === s1.charAt(j-1)) {
+        matrix[i][j] = matrix[i-1][j-1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i-1][j-1] + 1, // substitution
+          matrix[i][j-1] + 1,   // insertion
+          matrix[i-1][j] + 1    // deletion
+        );
+      }
+    }
+  }
+
+  const maxLen = Math.max(s1.length, s2.length);
+  const distance = matrix[s2.length][s1.length];
+  return Math.round((1 - distance / maxLen) * 100);
+}
+
 async function showMissingRoomsDialog(missingRoomNames, properties) {
+  // Load saved mappings from localStorage
+  const savedMappings = JSON.parse(localStorage.getItem('roomNameMappings') || '{}');
+
+  // Build list of all existing rooms with similarity scores
+  const allRooms = [];
+  properties.forEach(property => {
+    if (property.rooms) {
+      property.rooms.forEach(room => {
+        allRooms.push({
+          id: room.id,
+          name: room.name,
+          propertyName: property.name,
+          propertyId: property.id,
+          displayName: `${property.name} - ${room.name}`
+        });
+      });
+    }
+  });
+
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
-      <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">누락된 객실 발견</h2>
-        <p class="text-gray-600 mb-4">엑셀 파일에서 다음 객실들을 찾을 수 없습니다.</p>
-        <p class="text-sm text-gray-500 mb-4">• <strong>객실 생성하고 업로드</strong>: 아래 정보로 객실을 생성하고 바로 업로드를 계속 진행합니다.<br>• <strong>건너뛰고 업로드</strong>: 해당 객실과 관련된 예약 내역을 제외하고 나머지만 업로드합니다.</p>
+      <div class="bg-white rounded-lg p-8 max-w-3xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">객실 매핑 필요</h2>
+        <p class="text-gray-600 mb-2">엑셀 파일의 객실 이름을 기존 객실에 매핑하거나 새로 생성하세요.</p>
+        <p class="text-sm text-gray-500 mb-4">💡 시스템이 유사한 객실을 추천합니다. 드롭다운에서 선택하거나 "새 객실 생성"을 선택하세요.</p>
 
-        <div class="mb-6">
-          <div class="space-y-3">
-            ${missingRoomNames.map(roomName => `
-              <div class="border rounded-lg p-4 bg-gray-50">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="mb-6 space-y-4">
+          ${missingRoomNames.map((roomName, index) => {
+            // Calculate similarity for each existing room
+            const roomsWithSimilarity = allRooms.map(room => ({
+              ...room,
+              similarity: calculateSimilarity(roomName, room.name)
+            })).sort((a, b) => b.similarity - a.similarity);
+
+            // Get best match or saved mapping
+            const savedRoomId = savedMappings[roomName];
+            const bestMatch = roomsWithSimilarity[0];
+            const suggestedRoomId = savedRoomId || (bestMatch && bestMatch.similarity >= 50 ? bestMatch.id : 'new');
+
+            return `
+              <div class="border-2 rounded-lg p-4 ${bestMatch && bestMatch.similarity >= 70 ? 'border-green-200 bg-green-50' : 'bg-gray-50 border-gray-200'}">
+                <div class="flex items-center justify-between mb-3">
                   <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">객실명</label>
-                    <input type="text" value="${roomName}" readonly class="w-full px-3 py-2 border rounded bg-white text-gray-800">
+                    <div class="font-bold text-lg text-gray-800">${roomName}</div>
+                    ${bestMatch && bestMatch.similarity >= 50 ? `<div class="text-xs text-green-600 mt-1">✓ 추천: ${bestMatch.displayName} (${bestMatch.similarity}% 유사)</div>` : ''}
                   </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3">
                   <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">숙소 선택</label>
-                    <select class="property-select w-full px-3 py-2 border rounded" data-room-name="${roomName}">
-                      ${properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">매핑 대상 선택</label>
+                    <select class="room-mapping-select w-full px-3 py-2 border-2 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                            data-room-name="${roomName}"
+                            data-index="${index}">
+                      <option value="new">🆕 새 객실로 생성</option>
+                      <optgroup label="기존 객실 (유사도순)">
+                        ${roomsWithSimilarity.map(room => `
+                          <option value="${room.id}" ${room.id === suggestedRoomId ? 'selected' : ''}>
+                            ${room.displayName} ${room.similarity >= 70 ? '⭐' : room.similarity >= 50 ? '💡' : ''} (${room.similarity}%)
+                          </option>
+                        `).join('')}
+                      </optgroup>
                     </select>
                   </div>
-                  <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">기본 요금 (원)</label>
-                    <input type="number" class="base-price w-full px-3 py-2 border rounded" value="50000" min="0" step="1000" data-room-name="${roomName}">
-                  </div>
-                  <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">수용인원</label>
-                    <input type="number" class="capacity w-full px-3 py-2 border rounded" value="2" min="1" max="10" data-room-name="${roomName}">
+
+                  <!-- New room creation fields (hidden by default) -->
+                  <div class="new-room-fields hidden" data-index="${index}">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                      <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">숙소</label>
+                        <select class="property-select w-full px-2 py-1.5 text-sm border rounded" data-room-name="${roomName}">
+                          ${properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">기본 요금</label>
+                        <input type="number" class="base-price w-full px-2 py-1.5 text-sm border rounded" value="50000" min="0" step="1000" data-room-name="${roomName}">
+                      </div>
+                      <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">수용인원</label>
+                        <input type="number" class="capacity w-full px-2 py-1.5 text-sm border rounded" value="2" min="1" max="10" data-room-name="${roomName}">
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            `).join('')}
-          </div>
+            `;
+          }).join('')}
         </div>
 
         <div class="flex justify-end space-x-3">
           <button id="skipMissingRooms" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
-            건너뛰고 업로드
+            취소
           </button>
-          <button id="createMissingRooms" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            객실 생성하고 업로드 (${missingRoomNames.length}개)
+          <button id="applyMappings" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            매핑 적용하고 업로드
           </button>
         </div>
       </div>
@@ -1198,51 +1268,94 @@ async function showMissingRoomsDialog(missingRoomNames, properties) {
 
     document.body.appendChild(modal);
 
-    document.getElementById('skipMissingRooms').addEventListener('click', () => {
-      document.body.removeChild(modal);
-      resolve({ skip: true }); // User chose to skip - exclude these reservations
+    // Toggle new room fields based on selection
+    modal.querySelectorAll('.room-mapping-select').forEach(select => {
+      const index = select.dataset.index;
+      const newRoomFields = modal.querySelector(`.new-room-fields[data-index="${index}"]`);
+
+      select.addEventListener('change', () => {
+        if (select.value === 'new') {
+          newRoomFields.classList.remove('hidden');
+        } else {
+          newRoomFields.classList.add('hidden');
+        }
+      });
+
+      // Initialize visibility
+      if (select.value === 'new') {
+        newRoomFields.classList.remove('hidden');
+      }
     });
 
-    document.getElementById('createMissingRooms').addEventListener('click', async () => {
+    document.getElementById('skipMissingRooms').addEventListener('click', () => {
+      document.body.removeChild(modal);
+      resolve({ skip: true });
+    });
+
+    document.getElementById('applyMappings').addEventListener('click', async () => {
       try {
-        const createButton = document.getElementById('createMissingRooms');
-        createButton.disabled = true;
-        createButton.textContent = '생성 중...';
+        const applyButton = document.getElementById('applyMappings');
+        applyButton.disabled = true;
+        applyButton.textContent = '처리 중...';
 
-        // Collect all room data
-        const roomsToCreate = missingRoomNames.map(roomName => {
-          const propertyId = modal.querySelector(`.property-select[data-room-name="${roomName}"]`).value;
-          const basePrice = parseFloat(modal.querySelector(`.base-price[data-room-name="${roomName}"]`).value);
-          const capacity = parseInt(modal.querySelector(`.capacity[data-room-name="${roomName}"]`).value);
+        const mappings = {};
+        const roomsToCreate = [];
 
-          return {
-            propertyId,
-            roomName,
-            basePrice,
-            capacity
-          };
+        // Collect mapping decisions
+        missingRoomNames.forEach(roomName => {
+          const select = modal.querySelector(`.room-mapping-select[data-room-name="${roomName}"]`);
+          const selectedValue = select.value;
+
+          if (selectedValue === 'new') {
+            // User wants to create new room
+            const propertyId = modal.querySelector(`.property-select[data-room-name="${roomName}"]`).value;
+            const basePrice = parseFloat(modal.querySelector(`.base-price[data-room-name="${roomName}"]`).value);
+            const capacity = parseInt(modal.querySelector(`.capacity[data-room-name="${roomName}"]`).value);
+
+            roomsToCreate.push({
+              propertyId,
+              roomName,
+              basePrice,
+              capacity
+            });
+          } else {
+            // User mapped to existing room
+            mappings[roomName] = selectedValue;
+          }
         });
 
-        // Create rooms one by one
-        for (const room of roomsToCreate) {
-          await apiCall(`/properties?propertyId=${room.propertyId}`, {
-            method: 'POST',
-            body: JSON.stringify({
-              name: room.roomName,
-              type: room.roomName,
-              totalRooms: 1,
-              capacity: room.capacity,
-              basePrice: room.basePrice
-            })
-          });
+        // Create new rooms if needed
+        if (roomsToCreate.length > 0) {
+          for (const room of roomsToCreate) {
+            const result = await apiCall(`/properties?propertyId=${room.propertyId}`, {
+              method: 'POST',
+              body: JSON.stringify({
+                name: room.roomName,
+                type: room.roomName,
+                totalRooms: 1,
+                capacity: room.capacity,
+                basePrice: room.basePrice
+              })
+            });
+
+            // Add the newly created room to mappings
+            if (result && result.id) {
+              mappings[room.roomName] = result.id;
+            }
+          }
         }
 
+        // Save mappings to localStorage for future uploads
+        const existingMappings = JSON.parse(localStorage.getItem('roomNameMappings') || '{}');
+        const updatedMappings = { ...existingMappings, ...mappings };
+        localStorage.setItem('roomNameMappings', JSON.stringify(updatedMappings));
+
         document.body.removeChild(modal);
-        resolve({ created: true }); // Rooms created successfully - continue upload
+        resolve({ mappings, created: roomsToCreate.length > 0 });
       } catch (error) {
-        showToast('객실 생성 중 오류가 발생했습니다: ' + error.message, 'error');
+        showToast('매핑 처리 중 오류 발생: ' + error.message, 'error');
         document.body.removeChild(modal);
-        resolve({ skip: true, error: true }); // Error occurred - skip these rooms
+        resolve({ skip: true, error: true });
       }
     });
   });

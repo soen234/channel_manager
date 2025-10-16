@@ -26,8 +26,10 @@ module.exports = async (req, res) => {
 
     let created = 0;
     let updated = 0;
+    let skipped = 0;
     let errors = 0;
     const errorDetails = [];
+    const skippedDetails = [];
 
     for (const reservation of reservations) {
       try {
@@ -89,13 +91,13 @@ module.exports = async (req, res) => {
         }
 
         if (existing) {
-          // Skip update if existing reservation is CANCELLED
+          // Skip update if existing reservation is CANCELLED (not an error, just skipped)
           if (existing.status === 'CANCELLED') {
-            errorDetails.push({
+            skippedDetails.push({
               guest_name: reservation.guest_name,
-              error: 'Skipped - reservation was cancelled'
+              reason: 'Already cancelled'
             });
-            errors++;
+            skipped++;
             continue;
           }
 
@@ -181,9 +183,11 @@ module.exports = async (req, res) => {
       success: true,
       created,
       updated,
+      skipped,
       errors,
       total: reservations.length,
-      errorDetails: errorDetails.slice(0, 10) // Return first 10 errors
+      errorDetails: errorDetails.slice(0, 10), // Return first 10 errors
+      skippedDetails: skippedDetails.slice(0, 10) // Return first 10 skipped
     });
 
   } catch (error) {

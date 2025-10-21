@@ -35,6 +35,16 @@ async function loadRoomStatus() {
       </div>
     </div>
 
+    <!-- 배정되지 않은 예약 -->
+    <div id="unassignedReservations" class="bg-yellow-50 rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6" style="display: none;">
+      <h3 class="font-semibold text-gray-800 mb-3">배정되지 않은 예약</h3>
+      <div id="unassignedList" class="flex flex-wrap gap-2 min-h-[80px] p-2 border-2 border-dashed border-yellow-300 rounded-lg"
+           ondragover="handleUnassignedDragOver(event)"
+           ondragleave="handleUnassignedDragLeave(event)"
+           ondrop="handleUnassignedDrop(event)">
+      </div>
+    </div>
+
     <!-- 객실현황 테이블 -->
     <div id="roomStatusContent" class="bg-white rounded-lg shadow-md p-4 md:p-6">
       <div class="text-center py-8 text-gray-500">
@@ -61,6 +71,10 @@ async function loadRoomStatus() {
         <div class="flex items-center">
           <div class="w-4 h-4 bg-gray-100 border border-gray-300 mr-2"></div>
           <span class="text-sm">체크아웃</span>
+        </div>
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-yellow-100 border-2 border-yellow-500 mr-2"></div>
+          <span class="text-sm font-semibold text-yellow-700">결제 필요</span>
         </div>
       </div>
     </div>
@@ -277,7 +291,14 @@ function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
   }
 
   // Tetris-style allocation: Optimize reservation placement for maximum consecutive availability
-  const roomAllocation = allocateReservationsOptimally(rooms, reservations, dates);
+  const { allocation: roomAllocation, unallocated } = allocateReservationsOptimally(rooms, reservations, dates);
+
+  // Merge with existing unassigned reservations (preserve manually moved items)
+  const existingUnassignedIds = new Set(unassignedReservations.map(r => r.id));
+  const newUnallocated = unallocated.filter(r => !existingUnassignedIds.has(r.id));
+  unassignedReservations = [...unassignedReservations, ...newUnallocated];
+
+  renderUnassignedReservations();
 
   container.innerHTML = `
     <div class="overflow-x-auto">
@@ -376,6 +397,7 @@ function renderRoomRow(allocation, dates, room) {
 
     let bgColor = 'bg-blue-100';
     let borderColor = 'border-blue-300';
+    let unpaidIndicator = '';
 
     if (reservation.status === 'CHECKED_IN') {
       bgColor = 'bg-red-100';
@@ -388,6 +410,12 @@ function renderRoomRow(allocation, dates, room) {
       borderColor = 'border-orange-300';
     }
 
+    // Highlight unpaid reservations
+    if (reservation.payment_status === 'UNPAID' || !reservation.payment_status) {
+      borderColor = 'border-yellow-500 border-2';
+      unpaidIndicator = '<div class="text-xs text-yellow-700 font-bold bg-yellow-200 px-1 rounded">결제 필요</div>';
+    }
+
     return `
       <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor} cursor-move hover:opacity-80 reservation-cell"
           draggable="true"
@@ -398,6 +426,9 @@ function renderRoomRow(allocation, dates, room) {
           data-guest-name="${reservation.guest_name}"
           ondragstart="handleDragStart(event)"
           ondragend="handleDragEnd(event)"
+          ondragover="handleReservationDragOver(event)"
+          ondragleave="handleReservationDragLeave(event)"
+          ondrop="handleReservationDrop(event)"
           ontouchstart="handleTouchStart(event)"
           ontouchmove="handleTouchMove(event)"
           ontouchend="handleTouchEnd(event)"
@@ -405,6 +436,7 @@ function renderRoomRow(allocation, dates, room) {
         <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
         <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
         <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
+        ${unpaidIndicator}
         ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
         ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
       </td>
@@ -414,8 +446,11 @@ function renderRoomRow(allocation, dates, room) {
 
 // Tetris-style allocation algorithm
 function allocateReservationsOptimally(rooms, reservations, dates) {
-  // Filter out cancelled reservations
-  const activeReservations = reservations.filter(res => res.status !== 'CANCELLED');
+  // Filter out cancelled reservations and already unassigned ones
+  const unassignedIds = new Set(unassignedReservations.map(r => r.id));
+  const activeReservations = reservations.filter(res =>
+    res.status !== 'CANCELLED' && !unassignedIds.has(res.id)
+  );
 
   // Group reservations by room type
   const reservationsByType = {};
@@ -442,6 +477,7 @@ function allocateReservationsOptimally(rooms, reservations, dates) {
 
   // Allocate each reservation to a room unit
   const allocation = {};
+  const unallocated = [];
 
   // Initialize allocation structure
   rooms.forEach(room => {
@@ -496,11 +532,12 @@ function allocateReservationsOptimally(rooms, reservations, dates) {
         }
       } else {
         console.warn('Could not allocate reservation:', reservation);
+        unallocated.push(reservation);
       }
     });
   });
 
-  return allocation;
+  return { allocation, unallocated };
 }
 
 function isUnitAvailable(unitAllocation, checkInDate, checkOutDate, dates) {
@@ -672,6 +709,16 @@ async function showReservationDetail(reservationId) {
                 </select>
               </div>
             </div>
+
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">결제 상태</label>
+              <select id="detailPaymentStatus" class="w-full px-3 py-2 border rounded-lg">
+                <option value="UNPAID" ${!reservation.payment_status || reservation.payment_status === 'UNPAID' ? 'selected' : ''}>미결제</option>
+                <option value="PARTIAL" ${reservation.payment_status === 'PARTIAL' ? 'selected' : ''}>부분결제</option>
+                <option value="PAID" ${reservation.payment_status === 'PAID' ? 'selected' : ''}>결제완료</option>
+                <option value="REFUNDED" ${reservation.payment_status === 'REFUNDED' ? 'selected' : ''}>환불</option>
+              </select>
+            </div>
           </div>
 
           <div class="mt-6 flex flex-col sm:flex-row justify-end gap-3">
@@ -750,7 +797,8 @@ async function saveReservationDetail(event, reservationId) {
         number_of_guests: parseInt(numberOfGuests),
         total_price: parseFloat(totalPrice),
         channel: document.getElementById('detailChannel').value,
-        status: document.getElementById('detailStatus').value
+        status: document.getElementById('detailStatus').value,
+        payment_status: document.getElementById('detailPaymentStatus').value
       })
     });
 
@@ -1089,6 +1137,147 @@ let draggedReservation = null;
 let touchStartTime = 0;
 let touchMoved = false;
 
+// Unassigned reservations
+let unassignedReservations = [];
+let cachedProperties = null;
+
+async function renderUnassignedReservations() {
+  const container = document.getElementById('unassignedReservations');
+  const list = document.getElementById('unassignedList');
+
+  if (!container || !list) return;
+
+  if (unassignedReservations.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  // Fetch properties if not cached
+  if (!cachedProperties) {
+    try {
+      cachedProperties = await apiCall('/properties');
+    } catch (error) {
+      console.error('Failed to fetch properties:', error);
+    }
+  }
+
+  container.style.display = 'block';
+  list.innerHTML = unassignedReservations.map(reservation => {
+    const checkIn = new Date(reservation.check_in).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    const checkOut = new Date(reservation.check_out).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+
+    // Find room name
+    let roomName = '알 수 없음';
+    let propertyName = '';
+    if (cachedProperties) {
+      for (const property of cachedProperties) {
+        if (property.rooms) {
+          const room = property.rooms.find(r => r.id === reservation.room_id);
+          if (room) {
+            roomName = room.name;
+            propertyName = property.name;
+            break;
+          }
+        }
+      }
+    }
+
+    return `
+      <div class="bg-white border-2 border-purple-400 rounded-lg p-3 cursor-move hover:shadow-lg transition-shadow unassigned-reservation"
+           draggable="true"
+           data-reservation-id="${reservation.id}"
+           data-room-id="${reservation.room_id}"
+           data-check-in="${reservation.check_in}"
+           data-check-out="${reservation.check_out}"
+           data-guest-name="${reservation.guest_name}"
+           ondragstart="handleUnassignedDragStart(event)"
+           ondragend="handleDragEnd(event)"
+           onclick="showReservationDetail('${reservation.id}')">
+        <div class="text-sm font-semibold text-gray-800">${reservation.guest_name}</div>
+        <div class="text-xs text-gray-600">${checkIn} ~ ${checkOut}</div>
+        <div class="text-xs text-blue-600 font-medium">${propertyName} - ${roomName}</div>
+        <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
+        <div class="text-xs text-purple-600 font-bold mt-1">배정 대기</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function handleUnassignedDragStart(event) {
+  const cell = event.currentTarget;
+  draggedReservation = {
+    id: cell.dataset.reservationId,
+    roomId: cell.dataset.roomId,
+    checkIn: cell.dataset.checkIn,
+    checkOut: cell.dataset.checkOut,
+    guestName: cell.dataset.guestName,
+    isUnassigned: true
+  };
+
+  cell.style.opacity = '0.5';
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/html', cell.innerHTML);
+  }
+
+  event.stopPropagation();
+}
+
+function handleUnassignedDragOver(event) {
+  if (event.preventDefault) {
+    event.preventDefault();
+  }
+
+  const dropZone = event.currentTarget;
+  dropZone.classList.add('bg-yellow-200', 'border-yellow-500');
+
+  event.dataTransfer.dropEffect = 'move';
+  return false;
+}
+
+function handleUnassignedDragLeave(event) {
+  const dropZone = event.currentTarget;
+  dropZone.classList.remove('bg-yellow-200', 'border-yellow-500');
+}
+
+async function handleUnassignedDrop(event) {
+  if (event.stopPropagation) {
+    event.stopPropagation();
+  }
+
+  event.preventDefault();
+
+  const dropZone = event.currentTarget;
+  dropZone.classList.remove('bg-yellow-200', 'border-yellow-500');
+
+  if (!draggedReservation || draggedReservation.isUnassigned) {
+    return false;
+  }
+
+  // Move reservation to unassigned
+  try {
+    // Get fresh reservation data
+    const reservation = await apiCall(`/reservations/${draggedReservation.id}`);
+
+    // Add to unassigned list if not already there
+    if (!unassignedReservations.find(r => r.id === reservation.id)) {
+      unassignedReservations.push(reservation);
+    }
+
+    renderUnassignedReservations();
+    await loadRoomStatusData();
+
+    showToast('예약이 배정 대기로 이동되었습니다', 'success');
+  } catch (error) {
+    console.error('Failed to move reservation to unassigned:', error);
+    showToast('예약 이동 실패', 'error');
+  }
+
+  draggedReservation = null;
+  return false;
+}
+
 function handleDragStart(event) {
   const cell = event.currentTarget;
   draggedReservation = {
@@ -1096,7 +1285,8 @@ function handleDragStart(event) {
     roomId: cell.dataset.roomId,
     checkIn: cell.dataset.checkIn,
     checkOut: cell.dataset.checkOut,
-    guestName: cell.dataset.guestName
+    guestName: cell.dataset.guestName,
+    isUnassigned: false
   };
 
   cell.style.opacity = '0.5';
@@ -1213,8 +1403,174 @@ function handleDropZoneTap(event) {
   draggedReservation = null;
 }
 
+function handleReservationDragOver(event) {
+  if (event.preventDefault) {
+    event.preventDefault();
+  }
+
+  if (!draggedReservation) return;
+
+  const dropCell = event.currentTarget;
+  const targetResId = dropCell.dataset.reservationId;
+
+  // Don't allow dropping on itself
+  if (draggedReservation.id === targetResId) {
+    return;
+  }
+
+  dropCell.classList.add('ring-2', 'ring-purple-500');
+  event.dataTransfer.dropEffect = 'move';
+  return false;
+}
+
+function handleReservationDragLeave(event) {
+  const dropCell = event.currentTarget;
+  dropCell.classList.remove('ring-2', 'ring-purple-500');
+}
+
+async function handleReservationDrop(event) {
+  if (event.stopPropagation) {
+    event.stopPropagation();
+  }
+
+  event.preventDefault();
+
+  const dropCell = event.currentTarget;
+  dropCell.classList.remove('ring-2', 'ring-purple-500');
+
+  if (!draggedReservation) {
+    return false;
+  }
+
+  const targetReservation = {
+    id: dropCell.dataset.reservationId,
+    roomId: dropCell.dataset.roomId,
+    checkIn: dropCell.dataset.checkIn,
+    checkOut: dropCell.dataset.checkOut,
+    guestName: dropCell.dataset.guestName
+  };
+
+  // Don't allow dropping on itself
+  if (draggedReservation.id === targetReservation.id) {
+    draggedReservation = null;
+    return false;
+  }
+
+  // Show swap confirmation
+  await showSwapConfirmation(draggedReservation, targetReservation);
+
+  draggedReservation = null;
+  return false;
+}
+
+async function showSwapConfirmation(reservation1, reservation2) {
+  try {
+    // Get room info
+    const properties = await apiCall('/properties');
+    let room1Name = '';
+    let room2Name = '';
+
+    for (const property of properties) {
+      if (property.rooms) {
+        const room1 = property.rooms.find(r => r.id === reservation1.roomId);
+        const room2 = property.rooms.find(r => r.id === reservation2.roomId);
+
+        if (room1) room1Name = `${property.name} - ${room1.name}`;
+        if (room2) room2Name = `${property.name} - ${room2.name}`;
+      }
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'swapConfirmModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
+        <h2 class="text-2xl font-bold mb-6">예약 교환 확인</h2>
+
+        <div class="mb-6">
+          <p class="text-lg mb-4">두 예약의 객실을 서로 바꾸시겠습니까?</p>
+
+          <div class="bg-gray-50 p-4 rounded-lg space-y-4">
+            <div class="border-b pb-3">
+              <p class="text-sm text-gray-600 mb-1">예약 1</p>
+              <p class="font-semibold">${reservation1.guestName}</p>
+              <p class="text-sm text-blue-600">${room1Name}</p>
+              <p class="text-xs text-gray-500">${new Date(reservation1.checkIn).toLocaleDateString('ko-KR')} ~ ${new Date(reservation1.checkOut).toLocaleDateString('ko-KR')}</p>
+            </div>
+
+            <div class="text-center text-2xl">⇅</div>
+
+            <div class="border-t pt-3">
+              <p class="text-sm text-gray-600 mb-1">예약 2</p>
+              <p class="font-semibold">${reservation2.guestName}</p>
+              <p class="text-sm text-blue-600">${room2Name}</p>
+              <p class="text-xs text-gray-500">${new Date(reservation2.checkIn).toLocaleDateString('ko-KR')} ~ ${new Date(reservation2.checkOut).toLocaleDateString('ko-KR')}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button onclick="closeSwapConfirm()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+            취소
+          </button>
+          <button onclick="confirmSwap('${reservation1.id}', '${reservation2.id}', '${reservation1.roomId}', '${reservation2.roomId}')"
+                  class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            교환하기
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  } catch (error) {
+    console.error('Failed to show swap confirmation:', error);
+    showToast('예약 교환 확인창을 열 수 없습니다', 'error');
+  }
+}
+
+function closeSwapConfirm() {
+  const modal = document.getElementById('swapConfirmModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function confirmSwap(reservation1Id, reservation2Id, room1Id, room2Id) {
+  try {
+    // Swap the room assignments
+    await Promise.all([
+      apiCall(`/reservations/update`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id: reservation1Id,
+          room_id: room2Id
+        })
+      }),
+      apiCall(`/reservations/update`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id: reservation2Id,
+          room_id: room1Id
+        })
+      })
+    ]);
+
+    showToast('예약이 교환되었습니다', 'success');
+    closeSwapConfirm();
+    await loadRoomStatusData();
+  } catch (error) {
+    console.error('Failed to swap reservations:', error);
+    showToast(error.message || '예약 교환 실패', 'error');
+  }
+}
+
 function handleDragEnd(event) {
   event.currentTarget.style.opacity = '1';
+
+  // Remove any lingering visual effects
+  document.querySelectorAll('.reservation-cell').forEach(cell => {
+    cell.classList.remove('ring-2', 'ring-purple-500');
+  });
 }
 
 function handleDragOver(event) {
@@ -1265,6 +1621,11 @@ async function handleDrop(event) {
 
   const newCheckOutDate = new Date(newCheckInDate);
   newCheckOutDate.setDate(newCheckOutDate.getDate() + durationDays);
+
+  // If dragged from unassigned, remove from unassigned list
+  if (draggedReservation.isUnassigned) {
+    unassignedReservations = unassignedReservations.filter(r => r.id !== draggedReservation.id);
+  }
 
   // Show confirmation modal
   await showMoveConfirmation(
@@ -1357,6 +1718,9 @@ async function confirmMove(reservationId, newRoomId, newCheckIn, newCheckOut) {
         check_out: newCheckOut
       })
     });
+
+    // Remove from unassigned list if it was there
+    unassignedReservations = unassignedReservations.filter(r => r.id !== reservationId);
 
     showToast('예약이 이동되었습니다', 'success');
     closeMoveConfirm();

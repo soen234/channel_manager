@@ -32,7 +32,8 @@ module.exports = async (req, res) => {
       number_of_guests,
       total_price,
       channel,
-      status
+      status,
+      payment_status
     } = req.body;
 
     // Build update object with only provided fields
@@ -47,6 +48,7 @@ module.exports = async (req, res) => {
     if (total_price !== undefined) updates.total_price = total_price;
     if (channel !== undefined) updates.channel = channel;
     if (status !== undefined) updates.status = status;
+    if (payment_status !== undefined) updates.payment_status = payment_status;
 
     updates.updated_at = new Date().toISOString();
 

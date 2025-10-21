@@ -220,6 +220,16 @@ async function loadReservations() {
                 <option value="NO_SHOW">노쇼</option>
               </select>
             </div>
+
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2">결제 상태</label>
+              <select id="editPaymentStatus" class="w-full px-3 py-2 border rounded-lg">
+                <option value="UNPAID">미결제</option>
+                <option value="PAID">결제완료</option>
+                <option value="PARTIAL">부분결제</option>
+                <option value="REFUNDED">환불</option>
+              </select>
+            </div>
           </div>
 
           <div class="flex justify-end space-x-3 mt-6">
@@ -302,6 +312,16 @@ async function loadReservations() {
                 <option value="CHECKED_OUT">체크아웃</option>
                 <option value="CANCELLED">취소</option>
                 <option value="NO_SHOW">노쇼</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2">결제 상태 *</label>
+              <select id="createPaymentStatus" required class="w-full px-3 py-2 border rounded-lg">
+                <option value="UNPAID">미결제</option>
+                <option value="PAID">결제완료</option>
+                <option value="PARTIAL">부분결제</option>
+                <option value="REFUNDED">환불</option>
               </select>
             </div>
           </div>
@@ -411,6 +431,7 @@ function renderReservationsList() {
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">인원</th>
           <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">금액</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">상태</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">결제</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
         </tr>
       </thead>
@@ -459,6 +480,15 @@ function renderReservationsList() {
                   <option value="CHECKED_OUT" ${res.status === 'CHECKED_OUT' ? 'selected' : ''}>체크아웃</option>
                   <option value="CANCELLED" ${res.status === 'CANCELLED' ? 'selected' : ''}>취소</option>
                   <option value="NO_SHOW" ${res.status === 'NO_SHOW' ? 'selected' : ''}>노쇼</option>
+                </select>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <select onchange="updateReservationPaymentStatus('${res.id}', this.value)"
+                  class="px-2 py-1 text-xs rounded border ${getPaymentStatusColorForSelect(res.payment_status)}">
+                  <option value="UNPAID" ${(res.payment_status === 'UNPAID' || !res.payment_status) ? 'selected' : ''}>미결제</option>
+                  <option value="PAID" ${res.payment_status === 'PAID' ? 'selected' : ''}>결제완료</option>
+                  <option value="PARTIAL" ${res.payment_status === 'PARTIAL' ? 'selected' : ''}>부분결제</option>
+                  <option value="REFUNDED" ${res.payment_status === 'REFUNDED' ? 'selected' : ''}>환불</option>
                 </select>
               </td>
               <td class="px-4 py-3 text-center">
@@ -567,6 +597,16 @@ function getStatusColorForSelect(status) {
   return colors[status] || 'bg-gray-50 text-gray-800 border-gray-200';
 }
 
+function getPaymentStatusColorForSelect(paymentStatus) {
+  const colors = {
+    'PAID': 'bg-green-50 text-green-800 border-green-200',
+    'PARTIAL': 'bg-blue-50 text-blue-800 border-blue-200',
+    'UNPAID': 'bg-yellow-50 text-yellow-800 border-yellow-200',
+    'REFUNDED': 'bg-purple-50 text-purple-800 border-purple-200'
+  };
+  return colors[paymentStatus] || 'bg-yellow-50 text-yellow-800 border-yellow-200';
+}
+
 async function filterReservations() {
   await loadReservationsList();
 }
@@ -596,6 +636,24 @@ async function updateReservationStatus(id, status) {
   } catch (error) {
     console.error('Failed to update reservation status:', error);
     showToast(error.message || '예약 상태 업데이트 실패', 'error');
+  }
+}
+
+async function updateReservationPaymentStatus(id, paymentStatus) {
+  try {
+    await apiCall('/reservations/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: id,
+        payment_status: paymentStatus
+      })
+    });
+
+    showToast('결제 상태가 업데이트되었습니다', 'success');
+    await loadReservations();
+  } catch (error) {
+    console.error('Failed to update payment status:', error);
+    showToast(error.message || '결제 상태 업데이트 실패', 'error');
   }
 }
 
@@ -880,6 +938,7 @@ async function validateAndTransformReservations(data) {
             num_guests: Math.ceil(extracted.numGuests / roomNames.length), // Distribute guests
             total_price: extracted.totalPrice / roomNames.length, // Split price
             channel: extracted.channel,
+            payment_status: extracted.paymentStatus,
             notes: `${extracted.notes}${roomNames.length > 1 ? ` (${roomIndex + 1}/${roomNames.length} 객실)` : ''}`,
             status: extracted.status
           });
@@ -914,6 +973,7 @@ async function validateAndTransformReservations(data) {
           num_guests: extracted.numGuests,
           total_price: extracted.totalPrice,
           channel: extracted.channel,
+          payment_status: extracted.paymentStatus,
           notes: extracted.notes,
           status: extracted.status
         });
@@ -996,7 +1056,8 @@ function extractReservationData(row) {
       channel: 'BOOKING_COM',
       country: row['Booker country'] || row['국가'] || '',
       notes: `예약번호: ${row['예약 번호'] || ''}`,
-      status: mapStatus(row['예약 상태'] || 'CONFIRMED')
+      status: mapStatus(row['예약 상태'] || 'CONFIRMED'),
+      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
     };
   }
 
@@ -1018,7 +1079,8 @@ function extractReservationData(row) {
       channel: detectChannel(row),
       country: row['국가'] || '',
       notes: row['외부 판매채널 예약번호'] || '',
-      status: mapStatus(row['예약상태'] || 'CONFIRMED')
+      status: mapStatus(row['예약상태'] || 'CONFIRMED'),
+      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
     };
   }
 
@@ -1035,7 +1097,8 @@ function extractReservationData(row) {
     channel: row['채널'] || row['channel'] || 'DIRECT',
     country: row['국가'] || row['country'] || '',
     notes: row['메모'] || row['notes'] || '',
-    status: 'CONFIRMED'
+    status: 'CONFIRMED',
+    paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
   };
 }
 
@@ -1090,6 +1153,38 @@ function mapStatus(statusStr) {
   }
 
   return 'CONFIRMED';
+}
+
+function mapPaymentStatus(statusStr) {
+  const status = String(statusStr).toLowerCase().trim();
+
+  // No status provided, default to UNPAID
+  if (!status) {
+    return 'UNPAID';
+  }
+
+  // Paid statuses
+  if (status.includes('결제완료') || status.includes('paid') || status.includes('결제') && !status.includes('미') && !status.includes('부분')) {
+    return 'PAID';
+  }
+
+  // Partial payment
+  if (status.includes('부분결제') || status.includes('부분') || status.includes('partial')) {
+    return 'PARTIAL';
+  }
+
+  // Refunded
+  if (status.includes('환불') || status.includes('refund')) {
+    return 'REFUNDED';
+  }
+
+  // Unpaid
+  if (status.includes('미결제') || status.includes('unpaid')) {
+    return 'UNPAID';
+  }
+
+  // Default to UNPAID if unknown
+  return 'UNPAID';
 }
 
 function parseExcelDate(value) {
@@ -1511,6 +1606,7 @@ async function editReservation(id) {
     document.getElementById('editCheckOut').value = reservation.check_out;
     document.getElementById('editTotalPrice').value = reservation.total_price;
     document.getElementById('editStatus').value = reservation.status;
+    document.getElementById('editPaymentStatus').value = reservation.payment_status || 'UNPAID';
 
     // Show modal
     document.getElementById('editReservationModal').classList.remove('hidden');
@@ -1541,7 +1637,8 @@ async function saveReservation(event) {
     check_in: document.getElementById('editCheckIn').value,
     check_out: document.getElementById('editCheckOut').value,
     total_price: parseFloat(document.getElementById('editTotalPrice').value),
-    status: document.getElementById('editStatus').value
+    status: document.getElementById('editStatus').value,
+    payment_status: document.getElementById('editPaymentStatus').value
   };
 
   try {
@@ -1679,7 +1776,8 @@ async function createReservation(event) {
     check_out: checkOut,
     number_of_guests: parseInt(numberOfGuests),
     total_price: parseFloat(totalPrice),
-    status: document.getElementById('createStatus').value
+    status: document.getElementById('createStatus').value,
+    payment_status: document.getElementById('createPaymentStatus').value
   };
 
   try {

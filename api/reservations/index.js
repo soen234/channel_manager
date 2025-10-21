@@ -63,7 +63,8 @@ async function handleCreateReservation(req, res, organizationId) {
       check_out,
       number_of_guests,
       total_price,
-      status
+      status,
+      payment_status
     } = req.body;
 
     // Validate required fields
@@ -91,7 +92,8 @@ async function handleCreateReservation(req, res, organizationId) {
         check_out,
         number_of_guests: number_of_guests || 1,
         total_price,
-        status: status || 'CONFIRMED'
+        status: status || 'CONFIRMED',
+        payment_status: payment_status || 'UNPAID'
       })
       .select()
       .single();

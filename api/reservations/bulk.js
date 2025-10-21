@@ -122,6 +122,11 @@ module.exports = async (req, res) => {
             updateData.status = reservation.status;
           }
 
+          // Update payment_status if provided
+          if (reservation.payment_status) {
+            updateData.payment_status = reservation.payment_status;
+          }
+
           const { error: updateError } = await supabase
             .from('reservations')
             .update(updateData)
@@ -155,7 +160,8 @@ module.exports = async (req, res) => {
               check_out: reservation.check_out,
               number_of_guests: reservation.num_guests || 1,
               total_price: reservation.total_price,
-              status: reservation.status || 'CONFIRMED'
+              status: reservation.status || 'CONFIRMED',
+              payment_status: reservation.payment_status || 'UNPAID'
             });
 
           if (insertError) {

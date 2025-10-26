@@ -36,7 +36,7 @@ async function loadRoomStatus() {
     </div>
 
     <!-- 배정되지 않은 예약 -->
-    <div id="unassignedReservations" class="bg-yellow-50 rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6" style="display: none;">
+    <div id="unassignedReservations" class="bg-yellow-50 rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
       <h3 class="font-semibold text-gray-800 mb-3">배정되지 않은 예약</h3>
       <div id="unassignedList" class="flex flex-wrap gap-2 min-h-[80px] p-2 border-2 border-dashed border-yellow-300 rounded-lg"
            ondragover="handleUnassignedDragOver(event)"
@@ -1147,8 +1147,11 @@ async function renderUnassignedReservations() {
 
   if (!container || !list) return;
 
+  // Always show the container
+  container.style.display = 'block';
+
   if (unassignedReservations.length === 0) {
-    container.style.display = 'none';
+    list.innerHTML = '<div class="text-center text-gray-500 py-4">배정되지 않은 예약이 없습니다</div>';
     return;
   }
 
@@ -1161,7 +1164,6 @@ async function renderUnassignedReservations() {
     }
   }
 
-  container.style.display = 'block';
   list.innerHTML = unassignedReservations.map(reservation => {
     const checkIn = new Date(reservation.check_in).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
     const checkOut = new Date(reservation.check_out).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });

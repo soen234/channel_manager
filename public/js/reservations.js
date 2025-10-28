@@ -648,6 +648,28 @@ function getPaymentMethodName(method) {
   return names[method] || method;
 }
 
+function getChannelName(channel) {
+  const names = {
+    'BOOKING_COM': 'Booking',
+    'YANOLJA': '야놀자',
+    'AIRBNB': 'Airbnb',
+    'WEBSITE': '웹사이트',
+    'DIRECT': '직접예약'
+  };
+  return names[channel] || channel;
+}
+
+function getChannelColor(channel) {
+  const colors = {
+    'BOOKING_COM': 'bg-blue-100 text-blue-800',
+    'YANOLJA': 'bg-green-100 text-green-800',
+    'AIRBNB': 'bg-red-100 text-red-800',
+    'WEBSITE': 'bg-purple-100 text-purple-800',
+    'DIRECT': 'bg-gray-100 text-gray-800'
+  };
+  return colors[channel] || 'bg-gray-100 text-gray-800';
+}
+
 async function filterReservations() {
   await loadReservationsList();
 }
@@ -1654,8 +1676,13 @@ async function editReservation(id) {
     document.getElementById('editGuestEmail').value = reservation.guest_email || '';
     document.getElementById('editGuestPhone').value = reservation.guest_phone || '';
     document.getElementById('editNumberOfGuests').value = reservation.number_of_guests || 1;
-    document.getElementById('editCheckIn').value = reservation.check_in;
-    document.getElementById('editCheckOut').value = reservation.check_out;
+
+    // Format dates for date input (YYYY-MM-DD)
+    const checkInDate = reservation.check_in ? new Date(reservation.check_in).toISOString().split('T')[0] : '';
+    const checkOutDate = reservation.check_out ? new Date(reservation.check_out).toISOString().split('T')[0] : '';
+    document.getElementById('editCheckIn').value = checkInDate;
+    document.getElementById('editCheckOut').value = checkOutDate;
+
     document.getElementById('editTotalPrice').value = reservation.total_price;
     document.getElementById('editStatus').value = reservation.status;
     document.getElementById('editPaymentStatus').value = reservation.payment_status || 'UNPAID';

@@ -267,9 +267,25 @@ async function loadRoomStatusData() {
     const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
 
     renderRoomStatusTable(rooms, reservations, startDate, endDate);
+
+    // 백그라운드에서 재고 동기화 (비동기로 실행, 에러 무시)
+    syncInventoryInBackground(startDate, endDate);
   } catch (error) {
     console.error('Failed to load room status:', error);
     showToast('데이터 로딩 실패', 'error');
+  }
+}
+
+async function syncInventoryInBackground(startDate, endDate) {
+  try {
+    await apiCall('/inventory/sync', {
+      method: 'POST',
+      body: JSON.stringify({ startDate, endDate })
+    });
+    console.log('Inventory synced in background');
+  } catch (error) {
+    console.error('Background inventory sync failed:', error);
+    // 에러를 사용자에게 보여주지 않음 (백그라운드 작업)
   }
 }
 
@@ -693,6 +709,7 @@ async function showReservationDetail(reservationId) {
                 <label class="block text-sm text-gray-600 mb-1">채널</label>
                 <select id="detailChannel" class="w-full px-3 py-2 border rounded-lg">
                   <option value="DIRECT" ${reservation.channel === 'DIRECT' ? 'selected' : ''}>직접 예약</option>
+                  <option value="WEBSITE" ${reservation.channel === 'WEBSITE' ? 'selected' : ''}>웹사이트</option>
                   <option value="BOOKING_COM" ${reservation.channel === 'BOOKING_COM' ? 'selected' : ''}>Booking.com</option>
                   <option value="YANOLJA" ${reservation.channel === 'YANOLJA' ? 'selected' : ''}>야놀자</option>
                   <option value="AIRBNB" ${reservation.channel === 'AIRBNB' ? 'selected' : ''}>Airbnb</option>
@@ -803,6 +820,10 @@ async function saveReservationDetail(event, reservationId) {
     });
 
     showToast('예약이 수정되었습니다', 'success');
+
+    // 백그라운드에서 재고 동기화
+    syncInventoryInBackground(checkIn, checkOut);
+
     closeReservationDetail();
     await loadRoomStatusData();
   } catch (error) {
@@ -1039,6 +1060,7 @@ async function showQuickCreateReservation(roomId, checkInDate) {
               <label class="block text-gray-700 text-sm font-bold mb-2">채널</label>
               <select id="quickChannel" class="w-full px-3 py-2 border rounded-lg">
                 <option value="DIRECT">직접 예약</option>
+                <option value="WEBSITE">웹사이트</option>
                 <option value="BOOKING_COM">Booking.com</option>
                 <option value="YANOLJA">야놀자</option>
                 <option value="AIRBNB">Airbnb</option>
@@ -1113,6 +1135,10 @@ async function submitQuickCreate(event, roomId, checkIn, checkOut) {
     });
 
     showToast('예약이 생성되었습니다', 'success');
+
+    // 백그라운드에서 재고 동기화
+    syncInventoryInBackground(checkIn, checkOut);
+
     closeQuickCreate();
     await loadRoomStatusData();
   } catch (error) {

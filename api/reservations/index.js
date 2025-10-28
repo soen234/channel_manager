@@ -1,4 +1,4 @@
-const { requireApproved, supabase } = require('../_middleware');
+const { requireApproved, supabase, updateInventoryForReservation } = require('../_middleware');
 
 module.exports = async (req, res) => {
   const authResult = await requireApproved(req, res);
@@ -64,7 +64,8 @@ async function handleCreateReservation(req, res, organizationId) {
       number_of_guests,
       total_price,
       status,
-      payment_status
+      payment_status,
+      payment_method
     } = req.body;
 
     // Validate required fields
@@ -93,7 +94,8 @@ async function handleCreateReservation(req, res, organizationId) {
         number_of_guests: number_of_guests || 1,
         total_price,
         status: status || 'CONFIRMED',
-        payment_status: payment_status || 'UNPAID'
+        payment_status: payment_status || 'UNPAID',
+        payment_method: payment_method || null
       })
       .select()
       .single();
@@ -101,6 +103,17 @@ async function handleCreateReservation(req, res, organizationId) {
     if (error) {
       console.error('Create reservation error:', error);
       throw error;
+    }
+
+    // Update inventory: decrease available rooms
+    const reservationStatus = status || 'CONFIRMED';
+    if (reservationStatus !== 'CANCELLED') {
+      try {
+        await updateInventoryForReservation(room_id, check_in, check_out, -1);
+      } catch (invError) {
+        console.error('Inventory update error:', invError);
+        // Continue even if inventory update fails (could add logging/alerting)
+      }
     }
 
     res.status(201).json(data);

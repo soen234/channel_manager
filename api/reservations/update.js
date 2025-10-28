@@ -1,4 +1,4 @@
-const { requireApproved, supabase } = require('../_middleware');
+const { requireApproved, supabase, updateInventoryForReservation } = require('../_middleware');
 
 /**
  * Update a reservation
@@ -22,6 +22,21 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Get existing reservation first for inventory comparison
+    const { data: existingReservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+      throw fetchError;
+    }
+
     const {
       room_id,
       guest_name,
@@ -33,7 +48,8 @@ module.exports = async (req, res) => {
       total_price,
       channel,
       status,
-      payment_status
+      payment_status,
+      payment_method
     } = req.body;
 
     // Build update object with only provided fields
@@ -49,6 +65,7 @@ module.exports = async (req, res) => {
     if (channel !== undefined) updates.channel = channel;
     if (status !== undefined) updates.status = status;
     if (payment_status !== undefined) updates.payment_status = payment_status;
+    if (payment_method !== undefined) updates.payment_method = payment_method;
 
     updates.updated_at = new Date().toISOString();
 
@@ -72,6 +89,46 @@ module.exports = async (req, res) => {
 
     if (!data) {
       return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    // Update inventory based on changes
+    try {
+      const oldRoomId = existingReservation.room_id;
+      const oldCheckIn = existingReservation.check_in;
+      const oldCheckOut = existingReservation.check_out;
+      const oldStatus = existingReservation.status;
+
+      const newRoomId = room_id !== undefined ? room_id : oldRoomId;
+      const newCheckIn = check_in !== undefined ? check_in : oldCheckIn;
+      const newCheckOut = check_out !== undefined ? check_out : oldCheckOut;
+      const newStatus = status !== undefined ? status : oldStatus;
+
+      const wasActive = oldStatus !== 'CANCELLED';
+      const isActive = newStatus !== 'CANCELLED';
+
+      // Case 1: Reservation was active, now cancelled - increase inventory
+      if (wasActive && !isActive) {
+        await updateInventoryForReservation(oldRoomId, oldCheckIn, oldCheckOut, 1);
+      }
+      // Case 2: Reservation was cancelled, now active - decrease inventory
+      else if (!wasActive && isActive) {
+        await updateInventoryForReservation(newRoomId, newCheckIn, newCheckOut, -1);
+      }
+      // Case 3: Both active, but dates or room changed
+      else if (wasActive && isActive) {
+        const roomChanged = oldRoomId !== newRoomId;
+        const datesChanged = oldCheckIn !== newCheckIn || oldCheckOut !== newCheckOut;
+
+        if (roomChanged || datesChanged) {
+          // Restore old inventory
+          await updateInventoryForReservation(oldRoomId, oldCheckIn, oldCheckOut, 1);
+          // Reserve new inventory
+          await updateInventoryForReservation(newRoomId, newCheckIn, newCheckOut, -1);
+        }
+      }
+    } catch (invError) {
+      console.error('Inventory update error:', invError);
+      // Continue even if inventory update fails
     }
 
     res.json(data);

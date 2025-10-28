@@ -205,6 +205,70 @@ async function getUserProperties(userId) {
   return staffProperties?.map(ps => ps.property_id) || [];
 }
 
+// Inventory management helpers
+async function updateInventory(roomId, date, delta) {
+  // Upsert inventory: create if not exists, update if exists
+  const { data: existing, error: fetchError } = await supabase
+    .from('inventory')
+    .select('*')
+    .eq('room_id', roomId)
+    .eq('date', date)
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') {
+    throw fetchError;
+  }
+
+  if (existing) {
+    // Update existing inventory
+    const newAvailable = existing.available + delta;
+    const { error: updateError } = await supabase
+      .from('inventory')
+      .update({
+        available: newAvailable,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+
+    if (updateError) throw updateError;
+  } else {
+    // Get room to find total_rooms
+    const { data: room, error: roomError } = await supabase
+      .from('rooms')
+      .select('total_rooms')
+      .eq('id', roomId)
+      .single();
+
+    if (roomError) throw roomError;
+
+    const totalRooms = room.total_rooms || 1;
+    const available = totalRooms + delta;
+
+    // Create new inventory record
+    const { error: insertError } = await supabase
+      .from('inventory')
+      .insert({
+        room_id: roomId,
+        date: date,
+        available: available,
+        total: totalRooms
+      });
+
+    if (insertError) throw insertError;
+  }
+}
+
+async function updateInventoryForReservation(roomId, checkIn, checkOut, delta) {
+  const startDate = new Date(checkIn);
+  const endDate = new Date(checkOut);
+
+  // Update inventory for each date from check-in to check-out (excluding check-out day)
+  for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    await updateInventory(roomId, dateStr, delta);
+  }
+}
+
 module.exports = {
   authMiddleware,
   supabase,
@@ -215,5 +279,7 @@ module.exports = {
   requireApproved,
   requireSuperAdmin,
   canAccessProperty,
-  getUserProperties
+  getUserProperties,
+  updateInventory,
+  updateInventoryForReservation
 };

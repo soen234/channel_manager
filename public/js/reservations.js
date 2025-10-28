@@ -18,6 +18,7 @@ async function loadReservations() {
             <label class="flex items-center"><input type="checkbox" value="BOOKING_COM" class="mr-2" onchange="applyFilters()"> Booking.com</label>
             <label class="flex items-center"><input type="checkbox" value="YANOLJA" class="mr-2" onchange="applyFilters()"> 야놀자</label>
             <label class="flex items-center"><input type="checkbox" value="AIRBNB" class="mr-2" onchange="applyFilters()"> Airbnb</label>
+            <label class="flex items-center"><input type="checkbox" value="WEBSITE" class="mr-2" onchange="applyFilters()"> 웹사이트</label>
             <label class="flex items-center"><input type="checkbox" value="DIRECT" class="mr-2" onchange="applyFilters()"> 직접 예약</label>
           </div>
         </div>
@@ -169,6 +170,7 @@ async function loadReservations() {
               <label class="block text-gray-700 text-sm font-bold mb-2">채널</label>
               <select id="editChannel" class="w-full px-3 py-2 border rounded-lg">
                 <option value="DIRECT">직접 예약</option>
+                <option value="WEBSITE">웹사이트</option>
                 <option value="BOOKING_COM">Booking.com</option>
                 <option value="YANOLJA">야놀자</option>
                 <option value="AIRBNB">Airbnb</option>
@@ -230,6 +232,17 @@ async function loadReservations() {
                 <option value="REFUNDED">환불</option>
               </select>
             </div>
+
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2">결제 수단</label>
+              <select id="editPaymentMethod" class="w-full px-3 py-2 border rounded-lg">
+                <option value="">선택 안함</option>
+                <option value="CASH">현금</option>
+                <option value="CARD">카드</option>
+                <option value="TRANSFER">계좌이체</option>
+                <option value="CHANNEL">채널결제</option>
+              </select>
+            </div>
           </div>
 
           <div class="flex justify-end space-x-3 mt-6">
@@ -263,6 +276,7 @@ async function loadReservations() {
               <label class="block text-gray-700 text-sm font-bold mb-2">채널 *</label>
               <select id="createChannel" required class="w-full px-3 py-2 border rounded-lg">
                 <option value="DIRECT">직접 예약</option>
+                <option value="WEBSITE">웹사이트</option>
                 <option value="BOOKING_COM">Booking.com</option>
                 <option value="YANOLJA">야놀자</option>
                 <option value="AIRBNB">Airbnb</option>
@@ -322,6 +336,17 @@ async function loadReservations() {
                 <option value="PAID">결제완료</option>
                 <option value="PARTIAL">부분결제</option>
                 <option value="REFUNDED">환불</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-gray-700 text-sm font-bold mb-2">결제 수단</label>
+              <select id="createPaymentMethod" class="w-full px-3 py-2 border rounded-lg">
+                <option value="">선택 안함</option>
+                <option value="CASH">현금</option>
+                <option value="CARD">카드</option>
+                <option value="TRANSFER">계좌이체</option>
+                <option value="CHANNEL">채널결제</option>
               </select>
             </div>
           </div>
@@ -432,6 +457,7 @@ function renderReservationsList() {
           <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">금액</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">상태</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">결제</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">결제수단</th>
           <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
         </tr>
       </thead>
@@ -490,6 +516,11 @@ function renderReservationsList() {
                   <option value="PARTIAL" ${res.payment_status === 'PARTIAL' ? 'selected' : ''}>부분결제</option>
                   <option value="REFUNDED" ${res.payment_status === 'REFUNDED' ? 'selected' : ''}>환불</option>
                 </select>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <span class="text-xs text-gray-700">
+                  ${res.payment_method ? getPaymentMethodName(res.payment_method) : '-'}
+                </span>
               </td>
               <td class="px-4 py-3 text-center">
                 <button onclick="editReservation('${res.id}')"
@@ -607,6 +638,16 @@ function getPaymentStatusColorForSelect(paymentStatus) {
   return colors[paymentStatus] || 'bg-yellow-50 text-yellow-800 border-yellow-200';
 }
 
+function getPaymentMethodName(method) {
+  const names = {
+    'CASH': '현금',
+    'CARD': '카드',
+    'TRANSFER': '계좌이체',
+    'CHANNEL': '채널결제'
+  };
+  return names[method] || method;
+}
+
 async function filterReservations() {
   await loadReservationsList();
 }
@@ -623,7 +664,7 @@ async function viewReservationDetail(id) {
 
 async function updateReservationStatus(id, status) {
   try {
-    await apiCall('/reservations/update', {
+    const reservation = await apiCall('/reservations/update', {
       method: 'POST',
       body: JSON.stringify({
         id: id,
@@ -632,6 +673,12 @@ async function updateReservationStatus(id, status) {
     });
 
     showToast('예약 상태가 업데이트되었습니다', 'success');
+
+    // 백그라운드에서 재고 동기화
+    if (reservation.check_in && reservation.check_out) {
+      syncInventoryForReservation(reservation.check_in, reservation.check_out);
+    }
+
     await loadReservations();
   } catch (error) {
     console.error('Failed to update reservation status:', error);
@@ -939,6 +986,7 @@ async function validateAndTransformReservations(data) {
             total_price: extracted.totalPrice / roomNames.length, // Split price
             channel: extracted.channel,
             payment_status: extracted.paymentStatus,
+            payment_method: extracted.paymentMethod,
             notes: `${extracted.notes}${roomNames.length > 1 ? ` (${roomIndex + 1}/${roomNames.length} 객실)` : ''}`,
             status: extracted.status
           });
@@ -974,6 +1022,7 @@ async function validateAndTransformReservations(data) {
           total_price: extracted.totalPrice,
           channel: extracted.channel,
           payment_status: extracted.paymentStatus,
+          payment_method: extracted.paymentMethod,
           notes: extracted.notes,
           status: extracted.status
         });
@@ -1057,7 +1106,8 @@ function extractReservationData(row) {
       country: row['Booker country'] || row['국가'] || '',
       notes: `예약번호: ${row['예약 번호'] || ''}`,
       status: mapStatus(row['예약 상태'] || 'CONFIRMED'),
-      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
+      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || ''),
+      paymentMethod: row['결제수단'] || row['결제 수단'] || row['payment_method'] || ''
     };
   }
 
@@ -1080,7 +1130,8 @@ function extractReservationData(row) {
       country: row['국가'] || '',
       notes: row['외부 판매채널 예약번호'] || '',
       status: mapStatus(row['예약상태'] || 'CONFIRMED'),
-      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
+      paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || ''),
+      paymentMethod: row['결제수단'] || row['결제 수단'] || row['payment_method'] || ''
     };
   }
 
@@ -1098,7 +1149,8 @@ function extractReservationData(row) {
     country: row['국가'] || row['country'] || '',
     notes: row['메모'] || row['notes'] || '',
     status: 'CONFIRMED',
-    paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || '')
+    paymentStatus: mapPaymentStatus(row['결제상태'] || row['결제 상태'] || row['payment_status'] || ''),
+    paymentMethod: row['결제수단'] || row['결제 수단'] || row['payment_method'] || ''
   };
 }
 
@@ -1607,6 +1659,7 @@ async function editReservation(id) {
     document.getElementById('editTotalPrice').value = reservation.total_price;
     document.getElementById('editStatus').value = reservation.status;
     document.getElementById('editPaymentStatus').value = reservation.payment_status || 'UNPAID';
+    document.getElementById('editPaymentMethod').value = reservation.payment_method || '';
 
     // Show modal
     document.getElementById('editReservationModal').classList.remove('hidden');
@@ -1638,7 +1691,8 @@ async function saveReservation(event) {
     check_out: document.getElementById('editCheckOut').value,
     total_price: parseFloat(document.getElementById('editTotalPrice').value),
     status: document.getElementById('editStatus').value,
-    payment_status: document.getElementById('editPaymentStatus').value
+    payment_status: document.getElementById('editPaymentStatus').value,
+    payment_method: document.getElementById('editPaymentMethod').value || null
   };
 
   try {
@@ -1648,6 +1702,10 @@ async function saveReservation(event) {
     });
 
     showToast('예약이 수정되었습니다', 'success');
+
+    // 백그라운드에서 재고 동기화
+    syncInventoryForReservation(data.check_in, data.check_out);
+
     closeEditReservationModal();
     await loadReservationsList();
   } catch (error) {
@@ -1777,7 +1835,8 @@ async function createReservation(event) {
     number_of_guests: parseInt(numberOfGuests),
     total_price: parseFloat(totalPrice),
     status: document.getElementById('createStatus').value,
-    payment_status: document.getElementById('createPaymentStatus').value
+    payment_status: document.getElementById('createPaymentStatus').value,
+    payment_method: document.getElementById('createPaymentMethod').value || null
   };
 
   try {
@@ -1787,12 +1846,39 @@ async function createReservation(event) {
     });
 
     showToast('예약이 생성되었습니다', 'success');
+
+    // 백그라운드에서 재고 동기화
+    syncInventoryForReservation(data.check_in, data.check_out);
+
     closeCreateReservationModal();
     await loadReservationsList();
   } catch (error) {
     console.error('Failed to create reservation:', error);
     const errorMessage = error.message || '예약 생성 실패';
     showToast(errorMessage, 'error');
+  }
+}
+
+// 헬퍼 함수: 예약 날짜 범위에 대한 재고 동기화
+async function syncInventoryForReservation(checkIn, checkOut) {
+  try {
+    // 여유를 두고 전후 7일 동기화
+    const startDate = new Date(checkIn);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(checkOut);
+    endDate.setDate(endDate.getDate() + 7);
+
+    await apiCall('/inventory/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      })
+    });
+    console.log('Inventory synced for reservation dates');
+  } catch (error) {
+    console.error('Failed to sync inventory:', error);
+    // 에러를 사용자에게 보여주지 않음 (백그라운드 작업)
   }
 }
 

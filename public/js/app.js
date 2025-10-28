@@ -355,7 +355,9 @@ function getChannelName(channel) {
   const names = {
     'BOOKING_COM': 'Booking',
     'YANOLJA': '야놀자',
-    'AIRBNB': 'Airbnb'
+    'AIRBNB': 'Airbnb',
+    'WEBSITE': '웹사이트',
+    'DIRECT': '직접예약'
   };
   return names[channel] || channel;
 }
@@ -364,7 +366,9 @@ function getChannelColor(channel) {
   const colors = {
     'BOOKING_COM': 'bg-blue-100 text-blue-800',
     'YANOLJA': 'bg-green-100 text-green-800',
-    'AIRBNB': 'bg-red-100 text-red-800'
+    'AIRBNB': 'bg-red-100 text-red-800',
+    'WEBSITE': 'bg-purple-100 text-purple-800',
+    'DIRECT': 'bg-gray-100 text-gray-800'
   };
   return colors[channel] || 'bg-gray-100 text-gray-800';
 }

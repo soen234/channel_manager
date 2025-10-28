@@ -1418,6 +1418,7 @@ function getChannelNameForExport(channel) {
     'BOOKING_COM': '부킹닷컴',
     'YANOLJA': '야놀자',
     'AIRBNB': '에어비앤비',
+    'WEBSITE': '웹사이트',
     'DIRECT': '직접예약'
   };
   return names[channel] || channel;

@@ -10,7 +10,7 @@ async function loadInventory() {
 
     <!-- 객실 선택 -->
     <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-4 md:mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">숙소 선택</label>
           <select id="selectedProperty" onchange="loadPropertyRooms()" class="w-full px-3 py-2 border rounded-lg">
@@ -27,6 +27,14 @@ async function loadInventory() {
           <label class="block text-gray-700 text-sm font-bold mb-2">조회 월</label>
           <input type="month" id="selectedMonth" onchange="loadInventoryData()"
             class="w-full px-3 py-2 border rounded-lg" value="${getCurrentMonth()}">
+        </div>
+        <div class="flex items-end">
+          <button onclick="syncInventoryWithReservations()"
+            class="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            id="syncInventoryBtn"
+            title="페이지 로드 시 자동으로 동기화됩니다">
+            🔄 수동 동기화
+          </button>
         </div>
       </div>
     </div>
@@ -119,8 +127,24 @@ async function loadInventoryData() {
     ]);
 
     renderInventoryTable(inventory, pricing, room, startDate, endDate);
+
+    // 백그라운드에서 재고 동기화
+    syncInventoryInBackground(startDate, endDate);
   } catch (error) {
     console.error('Failed to load inventory data:', error);
+  }
+}
+
+async function syncInventoryInBackground(startDate, endDate) {
+  try {
+    await apiCall('/inventory/sync', {
+      method: 'POST',
+      body: JSON.stringify({ startDate, endDate })
+    });
+    console.log('Inventory synced in background');
+  } catch (error) {
+    console.error('Background inventory sync failed:', error);
+    // 에러를 사용자에게 보여주지 않음 (백그라운드 작업)
   }
 }
 
@@ -235,6 +259,49 @@ async function syncInventoryAndPricing() {
 
 function copyToWeek(startDate) {
   showToast('주간복사 기능은 준비 중입니다.', 'error');
+}
+
+async function syncInventoryWithReservations() {
+  const syncBtn = document.getElementById('syncInventoryBtn');
+  const month = document.getElementById('selectedMonth').value;
+
+  if (!month) {
+    showToast('조회 월을 선택해주세요', 'error');
+    return;
+  }
+
+  // Calculate date range for selected month
+  const [year, monthNum] = month.split('-');
+  const startDate = `${year}-${monthNum}-01`;
+  const lastDay = new Date(year, monthNum, 0).getDate();
+  const endDate = `${year}-${monthNum}-${lastDay}`;
+
+  try {
+    syncBtn.disabled = true;
+    syncBtn.textContent = '동기화 중...';
+
+    const result = await apiCall('/inventory/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate: startDate,
+        endDate: endDate
+      })
+    });
+
+    showToast(`재고가 동기화되었습니다 (${result.updated}건 업데이트)`, 'success');
+
+    // Reload inventory data if a room is selected
+    const roomId = document.getElementById('selectedRoom').value;
+    if (roomId) {
+      await loadInventoryData();
+    }
+  } catch (error) {
+    console.error('Inventory sync error:', error);
+    showToast('재고 동기화 실패: ' + (error.message || ''), 'error');
+  } finally {
+    syncBtn.disabled = false;
+    syncBtn.textContent = '🔄 재고 동기화';
+  }
 }
 
 router.register('inventory', loadInventory);

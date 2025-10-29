@@ -115,6 +115,13 @@ async function loadChannels() {
     </div>
   `;
 
+  // Wait for DOM to be fully rendered
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+
   // Wait for DOM elements to be ready
   try {
     await waitForElement('channelMappingsList');

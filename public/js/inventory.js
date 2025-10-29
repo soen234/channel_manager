@@ -47,8 +47,12 @@ async function loadInventory() {
     </div>
   `;
 
-  // Wait for DOM elements to be ready
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Wait for DOM to be fully rendered
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
   await loadPropertyList();
 }
 

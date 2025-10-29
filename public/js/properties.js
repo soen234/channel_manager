@@ -103,8 +103,8 @@ async function loadProperties() {
           </div>
 
           <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-bold mb-2">기본 요금 (원)</label>
-            <input type="number" id="roomBasePrice" required min="0" step="1000"
+            <label class="block text-gray-700 text-sm font-bold mb-2">기본 요금 ($)</label>
+            <input type="number" id="roomBasePrice" required min="0" step="1"
               class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
@@ -213,7 +213,7 @@ async function refreshProperties() {
                       </div>
                       <p class="text-sm text-gray-600">타입: ${room.type}</p>
                       <p class="text-sm text-gray-500">수용인원: 최대 ${room.capacity}명/객실</p>
-                      <p class="text-sm font-semibold text-blue-600 mt-1">${parseFloat(room.base_price).toLocaleString()}원/박</p>
+                      <p class="text-sm font-semibold text-blue-600 mt-1">$${parseFloat(room.base_price).toLocaleString()}/박</p>
                     </div>
                     <div class="flex flex-col gap-1">
                       <button onclick="editRoom('${property.id}', '${room.id}')"

@@ -196,7 +196,7 @@ function renderInventoryTable(inventory, pricing, room, startDate, endDate) {
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 sticky left-0 bg-gray-50">날짜</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">요일</th>
             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">재고</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">요금</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">요금 ($)</th>
             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">작업</th>
           </tr>
         </thead>
@@ -222,7 +222,7 @@ function renderInventoryTable(inventory, pricing, room, startDate, endDate) {
                     class="w-20 px-2 py-1 border rounded text-center ${inv?.available > 0 ? 'bg-green-50' : 'bg-red-50'}">
                 </td>
                 <td class="px-4 py-3 text-sm text-center">
-                  <input type="number" value="${price?.price || room?.base_price || 0}" min="0" step="1000"
+                  <input type="number" value="${price?.price || room?.base_price || 0}" min="0" step="1"
                     data-date="${date}" data-type="pricing"
                     onchange="updatePricing('${date}', this.value)"
                     class="w-28 px-2 py-1 border rounded text-center">
@@ -242,11 +242,53 @@ function renderInventoryTable(inventory, pricing, room, startDate, endDate) {
 }
 
 async function updateInventory(date, available) {
-  showToast('재고 업데이트 기능은 준비 중입니다.', 'error');
+  const roomId = document.getElementById('selectedRoom').value;
+
+  if (!roomId) {
+    showToast('객실을 선택해주세요', 'error');
+    return;
+  }
+
+  try {
+    await apiCall('/inventory/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        room_id: roomId,
+        date: date,
+        available: parseInt(available)
+      })
+    });
+
+    showToast('재고가 업데이트되었습니다', 'success');
+  } catch (error) {
+    console.error('Inventory update error:', error);
+    showToast('재고 업데이트 실패: ' + (error.message || ''), 'error');
+  }
 }
 
 async function updatePricing(date, price) {
-  showToast('요금 업데이트 기능은 준비 중입니다.', 'error');
+  const roomId = document.getElementById('selectedRoom').value;
+
+  if (!roomId) {
+    showToast('객실을 선택해주세요', 'error');
+    return;
+  }
+
+  try {
+    await apiCall('/pricing/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        room_id: roomId,
+        date: date,
+        price: parseFloat(price)
+      })
+    });
+
+    showToast('요금이 업데이트되었습니다', 'success');
+  } catch (error) {
+    console.error('Pricing update error:', error);
+    showToast('요금 업데이트 실패: ' + (error.message || ''), 'error');
+  }
 }
 
 async function bulkUpdate(type) {

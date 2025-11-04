@@ -4,6 +4,7 @@
  */
 
 const puppeteer = require('puppeteer');
+const { saveSessionCookies, loadSessionCookies } = require('./session-manager');
 
 /**
  * Login to Booking.com extranet
@@ -97,8 +98,41 @@ async function fetchBookingReservations(username, password, options = {}) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Login
-    await loginToBooking(page, username, password);
+    // Try to load saved session cookies
+    const savedCookies = await loadSessionCookies();
+
+    if (savedCookies && savedCookies.length > 0) {
+      console.log('Loading saved session cookies...');
+      await page.setCookie(...savedCookies);
+
+      // Try to access admin page with saved session
+      await page.goto('https://admin.booking.com/hotel/hoteladmin/', {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      });
+
+      // Check if still logged in
+      const currentUrl = page.url();
+      if (!currentUrl.includes('sign-in') && !currentUrl.includes('login')) {
+        console.log('✅ Session still valid, skipping login');
+      } else {
+        console.log('⚠️ Session expired, need to login');
+        await loginToBooking(page, username, password);
+
+        // Save new session cookies
+        const cookies = await page.cookies();
+        await saveSessionCookies(cookies);
+        console.log('💾 Saved new session cookies');
+      }
+    } else {
+      console.log('No saved session, performing login...');
+      await loginToBooking(page, username, password);
+
+      // Save session cookies after successful login
+      const cookies = await page.cookies();
+      await saveSessionCookies(cookies);
+      console.log('💾 Saved session cookies');
+    }
 
     console.log('Successfully logged in to Booking.com');
 

@@ -26,9 +26,12 @@ async function loginToBooking(page, username, password) {
     await page.type('input[name="loginname"]', username);
     console.log('Entered username');
 
-    // Click "다음" button
-    await page.click('button[type="submit"]');
-    console.log('Clicked submit button');
+    // Click "다음" button and wait for navigation
+    await Promise.all([
+      page.click('button[type="submit"]'),
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+    ]);
+    console.log('Clicked submit button and navigated to password page');
 
     // Wait for password field on next page
     await page.waitForSelector('input[type="password"]', { timeout: 15000 });

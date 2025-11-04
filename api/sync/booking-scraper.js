@@ -19,26 +19,34 @@ async function loginToBooking(page, username, password) {
       timeout: 60000
     });
 
+    console.log('Navigated to login page');
+
     // Wait for username field and enter credentials
-    await page.waitForSelector('input[type="email"], input[name="loginname"]', { timeout: 10000 });
-    await page.type('input[type="email"], input[name="loginname"]', username);
+    await page.waitForSelector('input[name="loginname"]', { timeout: 15000 });
+    await page.type('input[name="loginname"]', username);
+    console.log('Entered username');
 
-    // Click continue or submit
+    // Click "다음" button
     await page.click('button[type="submit"]');
+    console.log('Clicked submit button');
 
-    // Wait for password field
-    await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+    // Wait for password field on next page
+    await page.waitForSelector('input[type="password"]', { timeout: 15000 });
     await page.type('input[type="password"]', password);
+    console.log('Entered password');
 
     // Submit login
-    await page.click('button[type="submit"]');
-
-    // Wait for navigation to complete
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+    await Promise.all([
+      page.click('button[type="submit"]'),
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+    ]);
+    console.log('Submitted login form');
 
     // Check if logged in
     const currentUrl = page.url();
-    if (currentUrl.includes('login') || currentUrl.includes('signin')) {
+    console.log('Current URL after login:', currentUrl);
+
+    if (currentUrl.includes('sign-in') || currentUrl.includes('login')) {
       throw new Error('Login failed - still on login page');
     }
 

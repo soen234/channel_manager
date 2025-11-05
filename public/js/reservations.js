@@ -1,3 +1,27 @@
+// Helper functions
+function getChannelName(channel) {
+  const names = {
+    'BOOKING_COM': 'Booking',
+    'YANOLJA': '야놀자',
+    'AIRBNB': 'Airbnb',
+    'WEBSITE': '웹사이트',
+    'DIRECT': '직접예약'
+  };
+  return names[channel] || channel;
+}
+
+function formatPrice(price, currency) {
+  const amount = parseFloat(price);
+  if (isNaN(amount)) return '0원';
+
+  if (currency === 'USD') {
+    return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else {
+    // Default to KRW
+    return amount.toLocaleString('ko-KR') + '원';
+  }
+}
+
 // 예약 관리 페이지
 async function loadReservations() {
   const container = document.getElementById('mainContent');
@@ -44,8 +68,8 @@ async function loadReservations() {
         </div>
       </div>
 
-      <!-- 날짜 및 가격 필터 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+      <!-- 날짜 필터 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-6 border-t">
         <div>
           <label class="block text-gray-700 text-sm font-bold mb-2">체크인 시작</label>
           <input type="date" id="filterCheckInStart" onchange="applyFilters()"
@@ -55,16 +79,6 @@ async function loadReservations() {
           <label class="block text-gray-700 text-sm font-bold mb-2">체크인 종료</label>
           <input type="date" id="filterCheckInEnd" onchange="applyFilters()"
             class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
-        </div>
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">최소 가격</label>
-          <input type="number" id="filterPriceMin" placeholder="0" onchange="applyFilters()"
-            class="w-full px-3 py-2 border rounded-lg text-sm">
-        </div>
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">최대 가격</label>
-          <input type="number" id="filterPriceMax" placeholder="1000000" onchange="applyFilters()"
-            class="w-full px-3 py-2 border rounded-lg text-sm">
         </div>
       </div>
 
@@ -372,6 +386,22 @@ async function loadReservations() {
       requestAnimationFrame(resolve);
     });
   });
+
+  // Set default date filters (today to 1 week from now)
+  const today = new Date();
+  const oneWeekLater = new Date();
+  oneWeekLater.setDate(today.getDate() + 7);
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  document.getElementById('filterCheckInStart').value = formatDate(today);
+  document.getElementById('filterCheckInEnd').value = formatDate(oneWeekLater);
+
   await loadPropertyFilters();
   await loadReservationsList();
 }
@@ -499,7 +529,7 @@ function renderReservationsList() {
               </td>
               <td class="px-4 py-3 text-right">
                 <div class="text-sm font-semibold text-gray-900">
-                  ${parseFloat(res.total_price).toLocaleString()}원
+                  ${formatPrice(res.total_price, res.currency)}
                 </div>
               </td>
               <td class="px-4 py-3 text-center">
@@ -650,17 +680,6 @@ function getPaymentMethodName(method) {
     'CHANNEL': '채널결제'
   };
   return names[method] || method;
-}
-
-function getChannelName(channel) {
-  const names = {
-    'BOOKING_COM': 'Booking',
-    'YANOLJA': '야놀자',
-    'AIRBNB': 'Airbnb',
-    'WEBSITE': '웹사이트',
-    'DIRECT': '직접예약'
-  };
-  return names[channel] || channel;
 }
 
 function getChannelColor(channel) {
@@ -1571,24 +1590,18 @@ async function applyFilters() {
 
   const checkInStart = document.getElementById('filterCheckInStart')?.value;
   const checkInEnd = document.getElementById('filterCheckInEnd')?.value;
-  const priceMin = document.getElementById('filterPriceMin')?.value;
-  const priceMax = document.getElementById('filterPriceMax')?.value;
 
-  // Only fetch from API if date range changed
-  const needsRefetch = checkInStart || checkInEnd;
+  // Always fetch with date range
+  let url = '/reservations?';
+  if (checkInStart) url += `startDate=${checkInStart}&`;
+  if (checkInEnd) url += `endDate=${checkInEnd}&`;
 
-  if (needsRefetch || allReservations.length === 0) {
-    let url = '/reservations?';
-    if (checkInStart) url += `startDate=${checkInStart}&`;
-    if (checkInEnd) url += `endDate=${checkInEnd}&`;
-
-    try {
-      allReservations = await apiCall(url);
-    } catch (error) {
-      console.error('Failed to load reservations:', error);
-      showToast('예약 목록 로딩 실패', 'error');
-      return;
-    }
+  try {
+    allReservations = await apiCall(url);
+  } catch (error) {
+    console.error('Failed to load reservations:', error);
+    showToast('예약 목록 로딩 실패', 'error');
+    return;
   }
 
   // Client-side filtering - work with a copy of allReservations
@@ -1606,14 +1619,6 @@ async function applyFilters() {
     filtered = filtered.filter(r => statuses.includes(r.status));
   }
 
-  if (priceMin) {
-    filtered = filtered.filter(r => parseFloat(r.total_price) >= parseFloat(priceMin));
-  }
-
-  if (priceMax) {
-    filtered = filtered.filter(r => parseFloat(r.total_price) <= parseFloat(priceMax));
-  }
-
   // Store filtered results separately
   filteredReservations = filtered;
   currentPage = 1;
@@ -1625,26 +1630,31 @@ function hasActiveFilters() {
   const channels = document.querySelectorAll('#channelFilters input:checked').length > 0;
   const rooms = document.querySelectorAll('.room-filter:checked').length > 0;
   const statuses = document.querySelectorAll('#statusFilters input:checked').length > 0;
-  const checkInStart = document.getElementById('filterCheckInStart')?.value;
-  const checkInEnd = document.getElementById('filterCheckInEnd')?.value;
-  const priceMin = document.getElementById('filterPriceMin')?.value;
-  const priceMax = document.getElementById('filterPriceMax')?.value;
 
-  return channels || rooms || statuses || checkInStart || checkInEnd || priceMin || priceMax;
+  return channels || rooms || statuses;
 }
 
 // Reset all filters
 function resetFilters() {
   document.querySelectorAll('#channelFilters input, .room-filter, #statusFilters input').forEach(cb => cb.checked = false);
-  document.getElementById('filterCheckInStart').value = '';
-  document.getElementById('filterCheckInEnd').value = '';
-  document.getElementById('filterPriceMin').value = '';
-  document.getElementById('filterPriceMax').value = '';
 
-  // Clear filtered results
-  filteredReservations = [];
-  currentPage = 1;
-  renderReservationsList();
+  // Reset date filters to default (today to 1 week from now)
+  const today = new Date();
+  const oneWeekLater = new Date();
+  oneWeekLater.setDate(today.getDate() + 7);
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  document.getElementById('filterCheckInStart').value = formatDate(today);
+  document.getElementById('filterCheckInEnd').value = formatDate(oneWeekLater);
+
+  // Reload with reset filters
+  applyFilters();
 }
 
 // Edit reservation

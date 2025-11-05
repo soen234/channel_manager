@@ -383,6 +383,8 @@ function renderRoomRow(allocation, dates, room) {
       return `
         <td class="px-2 py-2 border text-center bg-green-50 cursor-pointer hover:bg-green-100 drop-zone"
             data-room-id="${room.room_type_id}"
+            data-display-id="${room.display_id}"
+            data-unit-number="${room.unit_number}"
             data-date="${date}"
             ondragover="handleDragOver(event)"
             ondragleave="handleDragLeave(event)"
@@ -439,6 +441,13 @@ function renderRoomRow(allocation, dates, room) {
       unpaidIndicator = '<div class="text-xs text-yellow-700 font-bold bg-yellow-200 px-1 rounded">결제 필요</div>';
     }
 
+    // Highlight manually placed reservations
+    let manuallyPlacedIndicator = '';
+    if (reservation.is_manually_placed) {
+      borderColor = 'border-purple-500 border-2';
+      manuallyPlacedIndicator = '<div class="text-xs text-purple-700 font-bold bg-purple-200 px-1 rounded">📌 고정</div>';
+    }
+
     return `
       <td colspan="${colspan}" class="px-2 py-2 border ${bgColor} ${borderColor} cursor-move hover:opacity-80 reservation-cell"
           draggable="true"
@@ -457,8 +466,9 @@ function renderRoomRow(allocation, dates, room) {
           ontouchend="handleTouchEnd(event)"
           onclick="showReservationDetail('${reservation.id}')">
         <div class="text-xs font-semibold text-gray-800">${reservation.guest_name}</div>
-        <div class="text-xs text-gray-600">${parseFloat(reservation.total_price).toLocaleString()}원</div>
+        <div class="text-xs text-gray-600">${formatPrice(reservation.total_price, reservation.currency)}</div>
         <div class="text-xs text-gray-500">${getChannelName(reservation.channel)}</div>
+        ${manuallyPlacedIndicator}
         ${unpaidIndicator}
         ${isCheckIn ? '<div class="text-xs text-blue-600 font-bold">IN</div>' : ''}
         ${isCheckOut ? '<div class="text-xs text-orange-600 font-bold">OUT</div>' : ''}
@@ -475,9 +485,13 @@ function allocateReservationsOptimally(rooms, reservations, dates) {
     res.status !== 'CANCELLED' && !unassignedIds.has(res.id)
   );
 
-  // Group reservations by room type
+  // Separate manually placed and auto-allocatable reservations
+  const manuallyPlacedReservations = activeReservations.filter(res => res.is_manually_placed);
+  const autoAllocatableReservations = activeReservations.filter(res => !res.is_manually_placed);
+
+  // Group auto-allocatable reservations by room type
   const reservationsByType = {};
-  activeReservations.forEach(res => {
+  autoAllocatableReservations.forEach(res => {
     if (!reservationsByType[res.room_id]) {
       reservationsByType[res.room_id] = [];
     }
@@ -505,6 +519,43 @@ function allocateReservationsOptimally(rooms, reservations, dates) {
   // Initialize allocation structure
   rooms.forEach(room => {
     allocation[room.display_id] = {};
+  });
+
+  // First, place all manually positioned reservations (they must not be moved)
+  manuallyPlacedReservations.forEach(reservation => {
+    // Find the specific room unit (display_id) for this reservation using room_unit_number
+    let targetRoom;
+    if (reservation.room_unit_number !== null && reservation.room_unit_number !== undefined) {
+      // Find the exact unit based on room_id and unit_number
+      targetRoom = rooms.find(r => r.room_type_id === reservation.room_id && r.unit_number === reservation.room_unit_number);
+    } else {
+      // Fallback: find any room of this type (for old data without room_unit_number)
+      targetRoom = rooms.find(r => r.room_type_id === reservation.room_id);
+    }
+
+    if (!targetRoom) {
+      console.warn('Manually placed reservation has invalid room_id or unit:', reservation);
+      return;
+    }
+
+    const checkIn = new Date(reservation.check_in);
+    const checkOut = new Date(reservation.check_out);
+
+    // Mark this room unit as occupied for the reservation dates
+    for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      if (dates.includes(dateStr)) {
+        if (!allocation[targetRoom.display_id]) {
+          allocation[targetRoom.display_id] = {};
+        }
+        allocation[targetRoom.display_id][dateStr] = {
+          ...reservation,
+          checkInDate: new Date(reservation.check_in).toISOString().split('T')[0],
+          checkOutDate: new Date(reservation.check_out).toISOString().split('T')[0],
+          nights: Math.ceil((new Date(reservation.check_out) - new Date(reservation.check_in)) / (1000 * 60 * 60 * 24))
+        };
+      }
+    }
   });
 
   // Process each room type's reservations
@@ -633,6 +684,12 @@ function calculateAllocationScore(unitAllocation, checkInDate, checkOutDate, dat
 
 // Show reservation detail modal
 async function showReservationDetail(reservationId) {
+  // Prevent duplicate modals
+  const existingModal = document.getElementById('reservationDetailModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
   try {
     const reservation = await apiCall(`/reservations/${reservationId}`);
     const properties = await apiCall('/properties');
@@ -647,6 +704,10 @@ async function showReservationDetail(reservationId) {
         });
       }
     });
+
+    // Format dates for date input (YYYY-MM-DD)
+    const checkInDate = reservation.check_in ? new Date(reservation.check_in).toISOString().split('T')[0] : '';
+    const checkOutDate = reservation.check_out ? new Date(reservation.check_out).toISOString().split('T')[0] : '';
 
     const modal = document.createElement('div');
     modal.id = 'reservationDetailModal';
@@ -692,11 +753,11 @@ async function showReservationDetail(reservationId) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm text-gray-600 mb-1">체크인 *</label>
-                <input type="date" id="detailCheckIn" required value="${reservation.check_in}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
+                <input type="date" id="detailCheckIn" required value="${checkInDate}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">체크아웃 *</label>
-                <input type="date" id="detailCheckOut" required value="${reservation.check_out}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
+                <input type="date" id="detailCheckOut" required value="${checkOutDate}" class="w-full max-w-full px-2 py-1.5 sm:px-3 sm:py-2 border rounded-lg text-sm">
               </div>
             </div>
 
@@ -734,14 +795,26 @@ async function showReservationDetail(reservationId) {
               </div>
             </div>
 
-            <div>
-              <label class="block text-sm text-gray-600 mb-1">결제 상태</label>
-              <select id="detailPaymentStatus" class="w-full px-3 py-2 border rounded-lg">
-                <option value="UNPAID" ${!reservation.payment_status || reservation.payment_status === 'UNPAID' ? 'selected' : ''}>미결제</option>
-                <option value="PARTIAL" ${reservation.payment_status === 'PARTIAL' ? 'selected' : ''}>부분결제</option>
-                <option value="PAID" ${reservation.payment_status === 'PAID' ? 'selected' : ''}>결제완료</option>
-                <option value="REFUNDED" ${reservation.payment_status === 'REFUNDED' ? 'selected' : ''}>환불</option>
-              </select>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">결제 상태</label>
+                <select id="detailPaymentStatus" class="w-full px-3 py-2 border rounded-lg">
+                  <option value="UNPAID" ${!reservation.payment_status || reservation.payment_status === 'UNPAID' ? 'selected' : ''}>미결제</option>
+                  <option value="PARTIAL" ${reservation.payment_status === 'PARTIAL' ? 'selected' : ''}>부분결제</option>
+                  <option value="PAID" ${reservation.payment_status === 'PAID' ? 'selected' : ''}>결제완료</option>
+                  <option value="REFUNDED" ${reservation.payment_status === 'REFUNDED' ? 'selected' : ''}>환불</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">결제 방법</label>
+                <select id="detailPaymentMethod" class="w-full px-3 py-2 border rounded-lg">
+                  <option value="" ${!reservation.payment_method ? 'selected' : ''}>선택 안함</option>
+                  <option value="CASH" ${reservation.payment_method === 'CASH' ? 'selected' : ''}>현금</option>
+                  <option value="CARD" ${reservation.payment_method === 'CARD' ? 'selected' : ''}>카드</option>
+                  <option value="TRANSFER" ${reservation.payment_method === 'TRANSFER' ? 'selected' : ''}>계좌이체</option>
+                  <option value="ONLINE" ${reservation.payment_method === 'ONLINE' ? 'selected' : ''}>온라인 결제</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -822,7 +895,8 @@ async function saveReservationDetail(event, reservationId) {
         total_price: parseFloat(totalPrice),
         channel: document.getElementById('detailChannel').value,
         status: document.getElementById('detailStatus').value,
-        payment_status: document.getElementById('detailPaymentStatus').value
+        payment_status: document.getElementById('detailPaymentStatus').value,
+        payment_method: document.getElementById('detailPaymentMethod').value || null
       })
     });
 
@@ -1407,6 +1481,7 @@ function handleDropZoneTap(event) {
 
   const dropZone = event.currentTarget;
   const newRoomId = dropZone.dataset.roomId;
+  const newUnitNumber = parseInt(dropZone.dataset.unitNumber);
   const newCheckInDate = dropZone.dataset.date;
 
   // Calculate new checkout date
@@ -1431,6 +1506,7 @@ function handleDropZoneTap(event) {
   showMoveConfirmation(
     draggedReservation,
     newRoomId,
+    newUnitNumber,
     newCheckInDate,
     newCheckOutDate.toISOString().split('T')[0]
   );
@@ -1572,25 +1648,27 @@ function closeSwapConfirm() {
 
 async function confirmSwap(reservation1Id, reservation2Id, room1Id, room2Id) {
   try {
-    // Swap the room assignments
+    // Swap the room assignments and mark as manually placed
     await Promise.all([
       apiCall(`/reservations/update`, {
         method: 'POST',
         body: JSON.stringify({
           id: reservation1Id,
-          room_id: room2Id
+          room_id: room2Id,
+          is_manually_placed: true
         })
       }),
       apiCall(`/reservations/update`, {
         method: 'POST',
         body: JSON.stringify({
           id: reservation2Id,
-          room_id: room1Id
+          room_id: room1Id,
+          is_manually_placed: true
         })
       })
     ]);
 
-    showToast('예약이 교환되었습니다', 'success');
+    showToast('예약이 교환되었습니다 (수동 배치로 고정됨)', 'success');
     closeSwapConfirm();
     await loadRoomStatusData();
   } catch (error) {
@@ -1647,6 +1725,7 @@ async function handleDrop(event) {
   }
 
   const newRoomId = dropZone.dataset.roomId;
+  const newUnitNumber = parseInt(dropZone.dataset.unitNumber);
   const newCheckInDate = dropZone.dataset.date;
 
   // Calculate new checkout date (same duration)
@@ -1666,6 +1745,7 @@ async function handleDrop(event) {
   await showMoveConfirmation(
     draggedReservation,
     newRoomId,
+    newUnitNumber,
     newCheckInDate,
     newCheckOutDate.toISOString().split('T')[0]
   );
@@ -1674,7 +1754,7 @@ async function handleDrop(event) {
   return false;
 }
 
-async function showMoveConfirmation(reservation, newRoomId, newCheckIn, newCheckOut) {
+async function showMoveConfirmation(reservation, newRoomId, newUnitNumber, newCheckIn, newCheckOut) {
   try {
     // Get room info
     const properties = await apiCall('/properties');
@@ -1687,7 +1767,7 @@ async function showMoveConfirmation(reservation, newRoomId, newCheckIn, newCheck
         const newRoom = property.rooms.find(r => r.id === newRoomId);
 
         if (oldRoom) oldRoomName = `${property.name} - ${oldRoom.name}`;
-        if (newRoom) newRoomName = `${property.name} - ${newRoom.name}`;
+        if (newRoom) newRoomName = `${property.name} - ${newRoom.name} #${newUnitNumber}`;
       }
     }
 
@@ -1720,7 +1800,7 @@ async function showMoveConfirmation(reservation, newRoomId, newCheckIn, newCheck
           <button onclick="closeMoveConfirm()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
             취소
           </button>
-          <button onclick="confirmMove('${reservation.id}', '${newRoomId}', '${newCheckIn}', '${newCheckOut}')"
+          <button onclick="confirmMove('${reservation.id}', '${newRoomId}', ${newUnitNumber}, '${newCheckIn}', '${newCheckOut}')"
                   class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             이동하기
           </button>
@@ -1742,27 +1822,53 @@ function closeMoveConfirm() {
   }
 }
 
-async function confirmMove(reservationId, newRoomId, newCheckIn, newCheckOut) {
+async function confirmMove(reservationId, newRoomId, newUnitNumber, newCheckIn, newCheckOut) {
   try {
     await apiCall(`/reservations/update`, {
       method: 'POST',
       body: JSON.stringify({
         id: reservationId,
         room_id: newRoomId,
+        room_unit_number: newUnitNumber,
         check_in: newCheckIn,
-        check_out: newCheckOut
+        check_out: newCheckOut,
+        is_manually_placed: true
       })
     });
 
     // Remove from unassigned list if it was there
     unassignedReservations = unassignedReservations.filter(r => r.id !== reservationId);
 
-    showToast('예약이 이동되었습니다', 'success');
+    showToast('예약이 이동되었습니다 (수동 배치로 고정됨)', 'success');
     closeMoveConfirm();
     await loadRoomStatusData();
   } catch (error) {
     console.error('Failed to move reservation:', error);
     showToast(error.message || '예약 이동 실패', 'error');
+  }
+}
+
+// Helper functions
+function getChannelName(channel) {
+  const names = {
+    'BOOKING_COM': 'Booking',
+    'YANOLJA': '야놀자',
+    'AIRBNB': 'Airbnb',
+    'WEBSITE': '웹사이트',
+    'DIRECT': '직접예약'
+  };
+  return names[channel] || channel;
+}
+
+function formatPrice(price, currency) {
+  const amount = parseFloat(price);
+  if (isNaN(amount)) return '0원';
+
+  if (currency === 'USD') {
+    return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else {
+    // Default to KRW
+    return amount.toLocaleString('ko-KR') + '원';
   }
 }
 

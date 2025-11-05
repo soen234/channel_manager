@@ -1,84 +1,52 @@
-const { requireSuperAdmin, supabase } = require('../_middleware');
-const { fetchBookingReservations } = require('./booking-scraper');
-
 /**
- * Sync Booking.com reservations
- * POST /api/sync/booking
- *
- * This endpoint scrapes Booking.com extranet and syncs reservations to database
- * Can be called manually or by cron job
- *
- * Required env vars:
- * - BOOKING_COM_USERNAME
- * - BOOKING_COM_PASSWORD
- * - BOOKING_COM_HOTEL_ID
+ * Full Booking.com sync test
+ * 1. Scrape reservations locally (with Puppeteer)
+ * 2. Send scraped data to API for DB update
  */
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+
+require('dotenv').config();
+const { fetchBookingReservations } = require('./api/sync/booking-scraper');
+
+async function fullSync() {
+  console.log('🚀 Starting Full Booking.com Sync\n');
+
+  const username = process.env.BOOKING_COM_USERNAME;
+  const password = process.env.BOOKING_COM_PASSWORD;
+  const hotelId = process.env.BOOKING_COM_HOTEL_ID;
+
+  if (!username || !password) {
+    console.error('❌ Missing credentials in .env');
+    process.exit(1);
   }
 
-  // Verify cron secret or super admin
-  const cronSecret = req.headers['x-cron-secret'];
-  const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('STARTING WEEK-BY-WEEK SYNC');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  console.log('Auth check:', {
-    cronSecret: cronSecret ? 'present' : 'missing',
-    expectedSecret: process.env.CRON_SECRET ? 'set' : 'not set',
-    isDevelopment,
-    match: cronSecret === process.env.CRON_SECRET
-  });
+  // Now sync with database using local module
+  const { supabase } = require('./api/_middleware');
 
-  if (cronSecret && cronSecret === process.env.CRON_SECRET) {
-    console.log('✅ Authenticated with CRON_SECRET');
-    // Allow cron job
-  } else if (isDevelopment && cronSecret) {
-    // In development, accept any cron secret for testing
-    console.log('✅ Development mode: accepting cron secret');
-  } else {
-    // Require super admin for manual trigger
-    const authResult = await requireSuperAdmin(req, res);
-    if (authResult.error) {
-      console.log('❌ Auth failed:', authResult.error);
-      return res.status(authResult.status).json({ error: authResult.error });
-    }
-    console.log('✅ Authenticated as super admin');
-  }
+  const results = {
+    scraped: 0,
+    updated: 0,
+    created: 0,
+    cancelled: 0,
+    unchanged: 0,
+    errors: 0,
+    unmappedRooms: [],
+    details: []
+  };
+
+  // Pre-load room cache for performance
+  const roomCache = await loadRoomCache(hotelId, supabase);
+  console.log(`✅ Loaded ${Object.keys(roomCache.rooms || {}).length} room keywords into cache\n`);
+
+  let weekNumber = 0;
 
   try {
-    const username = process.env.BOOKING_COM_USERNAME;
-    const password = process.env.BOOKING_COM_PASSWORD;
-    const hotelId = process.env.BOOKING_COM_HOTEL_ID;
-
-    if (!username || !password) {
-      return res.status(500).json({
-        error: 'Booking.com credentials not configured',
-        message: 'Please set BOOKING_COM_USERNAME and BOOKING_COM_PASSWORD environment variables'
-      });
-    }
-
-    console.log('Starting Booking.com sync...');
-
-    const results = {
-      scraped: 0,
-      updated: 0,
-      created: 0,
-      cancelled: 0,
-      unchanged: 0,
-      errors: 0,
-      unmappedRooms: [],
-      details: []
-    };
-
-    // Pre-load room cache for performance
-    const roomCache = await loadRoomCache(hotelId);
-    console.log(`Loaded ${Object.keys(roomCache).length} rooms into cache`);
-
-    let weekNumber = 0;
-
-    // Fetch reservations week by week with callback
+    // Scrape and process week by week
     await fetchBookingReservations(username, password, {
-      headless: true,
+      headless: false,  // Show browser for debugging
       onWeekComplete: async (weekReservations, week, total) => {
         weekNumber++;
         console.log(`\n📦 Processing Week ${weekNumber}: ${weekReservations.length} reservations`);
@@ -86,7 +54,7 @@ module.exports = async (req, res) => {
         // Process each reservation in this week
         for (const scraped of weekReservations) {
           try {
-            const result = await syncReservation(scraped, hotelId, roomCache);
+            const result = await syncReservationLocal(scraped, hotelId, supabase, roomCache);
 
             if (result.action === 'created') results.created++;
             if (result.action === 'updated') results.updated++;
@@ -116,54 +84,53 @@ module.exports = async (req, res) => {
             });
             results.scraped++;
 
+            // Show progress
+            process.stdout.write('.');
+
           } catch (error) {
-            console.error(`Error syncing reservation ${scraped.reservationNumber}:`, error);
+            console.error(`\n❌ Error syncing ${scraped.reservationNumber}:`, error.message);
             results.errors++;
-            results.details.push({
-              reservationNumber: scraped.reservationNumber,
-              error: error.message
-            });
           }
         }
 
-        console.log(`✅ Week ${weekNumber} processed: ${results.created} created, ${results.updated} updated, ${results.cancelled} cancelled, ${results.unchanged} unchanged`);
+        console.log(`\n✅ Week ${weekNumber} done: ${results.created} created, ${results.updated} updated, ${results.cancelled} cancelled, ${results.unchanged} unchanged`);
       }
     });
 
-    res.json({
-      success: true,
-      message: `Synced ${results.scraped} reservations from Booking.com`,
-      ...results
-    });
-
   } catch (error) {
-    console.error('Booking.com sync error:', error);
-    res.status(500).json({
-      error: error.message || 'Internal server error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    console.error('❌ Scraping failed:', error.message);
+    process.exit(1);
+  }
+
+  console.log('\n');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📊 SYNC RESULTS');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  console.log(`📥 Scraped: ${results.scraped} reservations`);
+  console.log(`➕ Created: ${results.created} new reservations`);
+  console.log(`🔄 Updated: ${results.updated} reservations`);
+  console.log(`❌ Cancelled: ${results.cancelled} reservations`);
+  console.log(`✓  Unchanged: ${results.unchanged} reservations`);
+  console.log(`⚠️  Errors: ${results.errors}`);
+
+  // Show unmapped rooms
+  if (results.unmappedRooms.length > 0) {
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('⚠️  UNMAPPED ROOM TYPES');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    results.unmappedRooms.forEach(room => {
+      console.log(`  📌 "${room.roomType}" (keyword: ${room.keyword})`);
+      console.log(`     Count: ${room.count} reservation(s)\n`);
     });
   }
-};
 
-/**
- * Extract numeric part from reservation number
- * Handles various formats: "5699756128", "예약번호: 5699756128", "EXCEL_123_abc", "아고다 1661199064"
- */
-function extractReservationNumber(reservationId) {
-  if (!reservationId) return null;
-  // Extract all continuous digits (longest sequence)
-  const matches = reservationId.match(/\d+/g);
-  if (!matches || matches.length === 0) return null;
-  // Return the longest sequence of digits
-  return matches.reduce((longest, current) =>
-    current.length > longest.length ? current : longest
-  , '');
+  console.log('\n✅ Full sync completed!\n');
 }
 
-/**
- * Load all rooms for a property into cache
- */
-async function loadRoomCache(hotelId) {
+// Load room cache
+async function loadRoomCache(hotelId, supabase) {
   const { data: property } = await supabase
     .from('properties')
     .select('id, organization_id')
@@ -177,7 +144,6 @@ async function loadRoomCache(hotelId) {
     .select('id, name')
     .eq('property_id', property.id);
 
-  // Build cache: { 'triple': roomId, 'double': roomId, ... }
   const cache = {
     propertyId: property.id,
     organizationId: property.organization_id,
@@ -189,7 +155,7 @@ async function loadRoomCache(hotelId) {
       const nameLower = room.name.toLowerCase();
       cache.rooms[nameLower] = { id: room.id, name: room.name };
 
-      // Add keyword-based entries for fast lookup
+      // Add keyword-based entries
       const keywords = ['single', 'double', 'twin', 'triple', 'quad', 'dormitory',
                        '싱글', '더블', '트윈', '트리플', '쿼드', '도미토리',
                        'deluxe', 'standard', 'suite', '디럭스', '스탠다드', '스위트'];
@@ -207,20 +173,27 @@ async function loadRoomCache(hotelId) {
   return cache;
 }
 
-/**
- * Sync a single reservation to database
- */
-async function syncReservation(scraped, hotelId, roomCache = null) {
+// Extract numeric part from reservation number
+function extractReservationNumber(reservationId) {
+  if (!reservationId) return null;
+  const matches = reservationId.match(/\d+/g);
+  if (!matches || matches.length === 0) return null;
+  return matches.reduce((longest, current) =>
+    current.length > longest.length ? current : longest
+  , '');
+}
+
+// Copy the syncReservation logic locally
+async function syncReservationLocal(scraped, hotelId, supabase, roomCache = null) {
   const { reservationNumber, guestName, checkIn, checkOut, status, price, roomType } = scraped;
 
   let propertyId, organizationId;
 
-  // Use cache if available, otherwise query database
+  // Use cache if available
   if (roomCache && roomCache.propertyId) {
     propertyId = roomCache.propertyId;
     organizationId = roomCache.organizationId;
   } else {
-    // Fallback to DB query if no cache
     const { data: property } = await supabase
       .from('properties')
       .select('id, organization_id')
@@ -237,12 +210,11 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
   let matchedRoomName = null;
 
   if (roomType && roomCache && roomCache.rooms) {
-    // Extract room type keywords from Booking.com room name
     const keywordResult = extractRoomKeyword(roomType);
     roomKeyword = keywordResult?.korean;
     const englishKeyword = keywordResult?.english;
 
-    // Try to find room in cache using keywords
+    // Try cache lookup
     if (englishKeyword && roomCache.rooms[englishKeyword.toLowerCase()]) {
       const cached = roomCache.rooms[englishKeyword.toLowerCase()];
       roomId = cached.id;
@@ -252,14 +224,9 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
       roomId = cached.id;
       matchedRoomName = cached.name;
     }
-
-    if (roomId) {
-      console.log(`✅ Matched (cached): "${roomType}" → "${matchedRoomName}"`);
-    }
   }
 
-  // Find existing reservation by comparing numeric part of reservation number
-  // First, get all BOOKING_COM reservations for this guest
+  // Find existing reservation by comparing numeric part
   let query = supabase
     .from('reservations')
     .select('*')
@@ -277,10 +244,8 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
     throw findError;
   }
 
-  // Extract numeric part from scraped reservation number
+  // Extract numeric part and find match
   const scrapedNumber = extractReservationNumber(reservationNumber);
-
-  // Find matching reservation by comparing numeric parts
   let existing = null;
   if (candidates && scrapedNumber) {
     existing = candidates.find(candidate => {
@@ -289,16 +254,14 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
     });
   }
 
-  // Debug: log if existing found
   if (existing) {
-    console.log(`🔍 Found existing: ${reservationNumber} matches DB: ${existing.channel_reservation_id}`);
+    console.log(`🔍 Found existing: ${reservationNumber} matches ${existing.channel_reservation_id}`);
   }
 
-  // Map Booking.com status to our status
   const mappedStatus = mapBookingStatus(status);
 
   if (existing) {
-    // Update existing reservation
+    // Update logic
     const updates = {};
     let hasChanges = false;
 
@@ -332,16 +295,14 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
         .eq('id', existing.id);
 
       if (updateError) {
-        console.error(`❌ Error updating reservation ${reservationNumber}:`, updateError);
+        console.error(`❌ Error updating ${reservationNumber}:`, updateError);
         throw updateError;
       }
 
-      console.log(`✅ Updated reservation: ${reservationNumber}`);
+      console.log(`✅ Updated: ${reservationNumber}`);
 
       return {
         action: mappedStatus === 'CANCELLED' ? 'cancelled' : 'updated',
-        reservationId: existing.id,
-        changes: updates,
         roomMatched: !!roomId,
         roomKeyword,
         matchedRoomName
@@ -350,22 +311,20 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
 
     return {
       action: 'unchanged',
-      reservationId: existing.id,
       roomMatched: !!roomId,
       roomKeyword,
       matchedRoomName
     };
-
   } else {
-    // Create new reservation
+    // Create new
     const reservationData = {
       channel: 'BOOKING_COM',
       channel_reservation_id: reservationNumber,
       guest_name: guestName || 'Unknown',
       guest_email: '',
       guest_phone: '',
-      check_in: parseDate(checkIn) || new Date().toISOString().split('T')[0],
-      check_out: parseDate(checkOut) || new Date().toISOString().split('T')[0],
+      check_in: checkIn,
+      check_out: checkOut,
       number_of_guests: 1,
       total_price: parsePrice(price) || 0,
       currency: 'USD',
@@ -373,58 +332,38 @@ async function syncReservation(scraped, hotelId, roomCache = null) {
       payment_status: 'UNPAID'
     };
 
-    // Add organization_id and room_id if found
-    if (organizationId) {
-      reservationData.organization_id = organizationId;
-    }
-    if (roomId) {
-      reservationData.room_id = roomId;
-    }
+    if (organizationId) reservationData.organization_id = organizationId;
+    if (roomId) reservationData.room_id = roomId;
 
-    const { data: newReservation, error: createError } = await supabase
+    const { error: createError } = await supabase
       .from('reservations')
-      .insert(reservationData)
-      .select()
-      .single();
+      .insert(reservationData);
 
     if (createError) {
-      console.error(`❌ Error creating reservation ${reservationNumber}:`, createError);
-      console.error('Reservation data:', JSON.stringify(reservationData, null, 2));
+      console.error(`❌ Error creating ${reservationNumber}:`, createError);
+      console.error('Data:', JSON.stringify(reservationData, null, 2));
       throw createError;
     }
 
-    console.log(`✅ Created reservation: ${reservationNumber}`);
+    console.log(`✅ Created: ${reservationNumber}`);
 
     return {
       action: 'created',
-      reservationId: newReservation.id,
       roomMatched: !!roomId,
-      propertyMatched: !!propertyId,
       roomKeyword,
       matchedRoomName
     };
   }
 }
 
-/**
- * Extract room type keyword from Booking.com room name
- * Returns both English and Korean keywords for flexible matching
- * Priority: Room capacity types (single, double, etc.) > Room grades (deluxe, standard)
- *
- * Handles formats like:
- * - "디럭스 트리플룸" -> { korean: "트리플", english: "triple" }
- * - "여성 전용 도미토리" -> { korean: "도미토리", english: "dormitory" }
- */
+// Helper functions
 function extractRoomKeyword(roomType) {
   if (!roomType) return null;
 
   // Clean up the room type string
-  let cleanedRoomType = roomType.trim();
-
+  const cleanedRoomType = roomType.trim();
   const roomTypeLower = cleanedRoomType.toLowerCase();
 
-  // Define room type mappings (English to Korean)
-  // Priority 1: Room capacity types (most important for matching)
   const capacityMappings = [
     { keywords: ['single', '싱글'], korean: '싱글', english: 'single' },
     { keywords: ['double', '더블'], korean: '더블', english: 'double' },
@@ -434,7 +373,6 @@ function extractRoomKeyword(roomType) {
     { keywords: ['dormitory', 'dorm', '도미토리'], korean: '도미토리', english: 'dormitory' }
   ];
 
-  // Priority 2: Room grades/types (fallback)
   const gradeMappings = [
     { keywords: ['suite', '스위트'], korean: '스위트', english: 'suite' },
     { keywords: ['deluxe', '디럭스'], korean: '디럭스', english: 'deluxe' },
@@ -461,60 +399,26 @@ function extractRoomKeyword(roomType) {
     }
   }
 
-  // If no keyword found, return the original room type for partial matching
   const firstWord = roomType.split(/\s+/)[0];
   return { korean: firstWord, english: firstWord };
 }
 
-/**
- * Map Booking.com status to our status
- */
-function mapBookingStatus(bookingStatus) {
-  if (!bookingStatus) return 'CONFIRMED';
-
-  const statusLower = bookingStatus.toLowerCase();
-
+function mapBookingStatus(status) {
+  if (!status) return 'CONFIRMED';
+  const statusLower = status.toLowerCase();
   if (statusLower.includes('cancel')) return 'CANCELLED';
-  if (statusLower.includes('no-show') || statusLower.includes('noshow')) return 'NO_SHOW';
-  if (statusLower.includes('check-out') || statusLower.includes('checked out')) return 'CHECKED_OUT';
-  if (statusLower.includes('check-in') || statusLower.includes('checked in')) return 'CHECKED_IN';
-
+  if (statusLower.includes('no')) return 'NO_SHOW';
   return 'CONFIRMED';
 }
 
-/**
- * Parse date from scraped text
- */
-function parseDate(dateStr) {
-  if (!dateStr) return null;
-
-  try {
-    // Try to parse various date formats
-    // Format: "2025-01-15", "15/01/2025", "Jan 15, 2025", etc.
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
-    }
-  } catch (err) {
-    console.error('Date parse error:', err);
-  }
-
-  return null;
-}
-
-/**
- * Parse price from scraped text
- */
 function parsePrice(priceStr) {
   if (!priceStr) return 0;
-
-  try {
-    // Remove currency symbols and parse number
-    const cleaned = priceStr.replace(/[^0-9.,-]/g, '');
-    const number = parseFloat(cleaned.replace(',', '.'));
-    return isNaN(number) ? 0 : number;
-  } catch (err) {
-    console.error('Price parse error:', err);
-    return 0;
-  }
+  const cleaned = priceStr.replace(/[^0-9.,-]/g, '');
+  const number = parseFloat(cleaned.replace(',', '.'));
+  return isNaN(number) ? 0 : number;
 }
+
+fullSync().catch(error => {
+  console.error('\n❌ Fatal error:', error);
+  process.exit(1);
+});

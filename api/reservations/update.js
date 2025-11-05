@@ -39,6 +39,7 @@ module.exports = async (req, res) => {
 
     const {
       room_id,
+      room_unit_number,
       guest_name,
       guest_email,
       guest_phone,
@@ -49,12 +50,14 @@ module.exports = async (req, res) => {
       channel,
       status,
       payment_status,
-      payment_method
+      payment_method,
+      is_manually_placed
     } = req.body;
 
     // Build update object with only provided fields
     const updates = {};
     if (room_id !== undefined) updates.room_id = room_id;
+    if (room_unit_number !== undefined) updates.room_unit_number = room_unit_number;
     if (guest_name !== undefined) updates.guest_name = guest_name;
     if (guest_email !== undefined) updates.guest_email = guest_email;
     if (guest_phone !== undefined) updates.guest_phone = guest_phone;
@@ -66,6 +69,7 @@ module.exports = async (req, res) => {
     if (status !== undefined) updates.status = status;
     if (payment_status !== undefined) updates.payment_status = payment_status;
     if (payment_method !== undefined) updates.payment_method = payment_method;
+    if (is_manually_placed !== undefined) updates.is_manually_placed = is_manually_placed;
 
     updates.updated_at = new Date().toISOString();
 

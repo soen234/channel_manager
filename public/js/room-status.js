@@ -273,6 +273,12 @@ async function loadRoomStatusData() {
     // 예약 데이터 가져오기
     const reservations = await apiCall(`/reservations?startDate=${startDate}&endDate=${endDate}`);
 
+    // Cache current data
+    currentRooms = rooms;
+    currentReservations = reservations;
+    currentStartDate = startDate;
+    currentEndDate = endDate;
+
     renderRoomStatusTable(rooms, reservations, startDate, endDate);
 
     // 백그라운드에서 재고 동기화 (비동기로 실행, 에러 무시)
@@ -294,6 +300,85 @@ async function syncInventoryInBackground(startDate, endDate) {
     console.error('Background inventory sync failed:', error);
     // 에러를 사용자에게 보여주지 않음 (백그라운드 작업)
   }
+}
+
+/**
+ * Smart refresh: Updates only changed reservations or does full refresh with fade effect
+ * @param {string} updatedReservationId - ID of reservation that was updated
+ * @param {boolean} needsTetrisRecalculation - Whether tetris algorithm needs to run
+ */
+async function smartRefresh(updatedReservationId = null, needsTetrisRecalculation = false) {
+  try {
+    // Fetch updated reservations
+    const reservations = await apiCall(`/reservations?startDate=${currentStartDate}&endDate=${currentEndDate}`);
+
+    // Update cache
+    currentReservations = reservations;
+
+    if (!needsTetrisRecalculation && updatedReservationId) {
+      // Partial update: Only update the specific reservation
+      await partialUpdateReservation(updatedReservationId, reservations);
+    } else {
+      // Full refresh with fade effect
+      await fullRefreshWithFade(currentRooms, reservations, currentStartDate, currentEndDate);
+    }
+  } catch (error) {
+    console.error('Smart refresh failed:', error);
+    showToast('데이터 새로고침 실패', 'error');
+  }
+}
+
+/**
+ * Partial update: Updates only the specific reservation cell(s)
+ */
+async function partialUpdateReservation(reservationId, allReservations) {
+  const reservation = allReservations.find(r => r.id === reservationId);
+  if (!reservation) {
+    console.warn('Reservation not found for partial update:', reservationId);
+    return;
+  }
+
+  // Find all cells for this reservation and update them
+  const cells = document.querySelectorAll(`[data-reservation-id="${reservationId}"]`);
+
+  if (cells.length === 0) {
+    // Reservation not visible in current view, do full refresh
+    await fullRefreshWithFade(currentRooms, currentReservations, currentStartDate, currentEndDate);
+    return;
+  }
+
+  // Re-render reservation cells with animation
+  cells.forEach(cell => {
+    cell.style.transition = 'opacity 0.2s ease-in-out';
+    cell.style.opacity = '0.5';
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // Do full refresh since partial update is complex with colspan
+  await fullRefreshWithFade(currentRooms, currentReservations, currentStartDate, currentEndDate);
+}
+
+/**
+ * Full refresh with smooth fade transition
+ */
+async function fullRefreshWithFade(rooms, reservations, startDate, endDate) {
+  const container = document.getElementById('roomStatusContent');
+  if (!container) return;
+
+  // Fade out
+  container.style.transition = 'opacity 0.15s ease-in-out';
+  container.style.opacity = '0.5';
+
+  await new Promise(resolve => setTimeout(resolve, 150));
+
+  // Re-render
+  renderRoomStatusTable(rooms, reservations, startDate, endDate);
+
+  // Fade in
+  container.style.opacity = '0.5';
+  await new Promise(resolve => setTimeout(resolve, 10));
+  container.style.opacity = '1';
 }
 
 function renderRoomStatusTable(rooms, reservations, startDate, endDate) {
@@ -906,7 +991,14 @@ async function saveReservationDetail(event, reservationId) {
     syncInventoryInBackground(checkIn, checkOut);
 
     closeReservationDetail();
-    await loadRoomStatusData();
+
+    // Check if room or dates changed - may need tetris recalculation
+    const roomChanged = originalRoomId !== newRoomId;
+    const datesChanged = checkIn !== currentReservations.find(r => r.id === reservationId)?.check_in ||
+                         checkOut !== currentReservations.find(r => r.id === reservationId)?.check_out;
+    const needsTetris = roomChanged || datesChanged;
+
+    await smartRefresh(reservationId, needsTetris);
   } catch (error) {
     console.error('Failed to update reservation:', error);
     showToast(error.message || '예약 수정 실패', 'error');
@@ -1019,7 +1111,7 @@ async function confirmCheckInSameRoom(reservationId, roomId, reservationData) {
     showToast('체크인이 완료되었습니다', 'success');
     closeCheckInConfirm();
     closeReservationDetail();
-    await loadRoomStatusData();
+    await smartRefresh(reservationId, false);
   } catch (error) {
     console.error('Check-in error:', error);
     showToast(error.message || '체크인 처리 실패', 'error');
@@ -1050,7 +1142,7 @@ async function confirmCheckInDifferentRoom(reservationId, reservationData) {
     showToast('체크인이 완료되었습니다', 'success');
     closeCheckInConfirm();
     closeReservationDetail();
-    await loadRoomStatusData();
+    await smartRefresh(reservationId, false);
   } catch (error) {
     console.error('Check-in error:', error);
     showToast(error.message || '체크인 처리 실패', 'error');
@@ -1247,6 +1339,12 @@ let touchMoved = false;
 // Unassigned reservations
 let unassignedReservations = [];
 let cachedProperties = null;
+
+// Cache for current room status data
+let currentRooms = [];
+let currentReservations = [];
+let currentStartDate = '';
+let currentEndDate = '';
 
 async function renderUnassignedReservations() {
   const container = document.getElementById('unassignedReservations');
@@ -1670,7 +1768,9 @@ async function confirmSwap(reservation1Id, reservation2Id, room1Id, room2Id) {
 
     showToast('예약이 교환되었습니다 (수동 배치로 고정됨)', 'success');
     closeSwapConfirm();
-    await loadRoomStatusData();
+
+    // Smart refresh: Swap is manual placement, no tetris needed
+    await smartRefresh(null, false);
   } catch (error) {
     console.error('Failed to swap reservations:', error);
     showToast(error.message || '예약 교환 실패', 'error');
@@ -1841,7 +1941,9 @@ async function confirmMove(reservationId, newRoomId, newUnitNumber, newCheckIn, 
 
     showToast('예약이 이동되었습니다 (수동 배치로 고정됨)', 'success');
     closeMoveConfirm();
-    await loadRoomStatusData();
+
+    // Smart refresh: Manual placement doesn't need tetris recalculation
+    await smartRefresh(reservationId, false);
   } catch (error) {
     console.error('Failed to move reservation:', error);
     showToast(error.message || '예약 이동 실패', 'error');
